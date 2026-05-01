@@ -54,8 +54,13 @@ export async function statusCommand(cwd: string): Promise<number> {
   );
   print();
   print("設定:");
-  print(`  provider:           ${config.provider}  (${config.sources.provider})`);
-  print(`  model:              ${config.model ?? "(unset)"}  (${config.sources.model})`);
+  print(`  mode:               ${config.mode}  (${config.sources.mode})`);
+  if (config.mode === "cmd") {
+    print(`  cmd:                ${config.cmd ?? "(unset)"}`);
+  } else {
+    print(`  provider:           ${config.provider}  (${config.sources.provider})`);
+    print(`  model:              ${config.model ?? "(unset)"}  (${config.sources.model})`);
+  }
   print(
     `  maxDiffChars:       ${config.maxDiffChars}  (${config.sources.maxDiffChars})`,
   );

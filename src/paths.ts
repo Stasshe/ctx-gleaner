@@ -33,6 +33,10 @@ export function getGleRootDir(): string {
 }
 
 export function getGlobalConfigPath(): string {
+  return join(getGleRootDir(), "glerc.jsonc");
+}
+
+export function getLegacyConfigPath(): string {
   return join(getGleRootDir(), "glerc.json");
 }
 

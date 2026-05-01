@@ -40,10 +40,27 @@ function buildCliCommand(subcommand: string): string {
 }
 
 const DEFAULT_GLOBAL_CONFIG = `{
+  // Generation mode: "api" (default) | "cmd"
+  // "api"  — use a cloud API provider (gemini / openai / litellm)
+  // "cmd"  — pipe the prompt to a custom command via stdin; read commit message from stdout
+  "mode": "api",
+
+  // ── api mode ────────────────────────────────────────────────────────────────
+  // provider: "gemini" (default) | "openai" | "litellm"
   "provider": "gemini",
+  // model name (provider-specific); omit to use the built-in default
   "model": "gemini-2.5-flash",
+  // max characters from the diff sent to the prompt
   "maxDiffChars": 8000,
-  "language": "auto"
+  // commit message language: "auto" | "en" | "ja" | "zh" | "ko" | "es"
+  "language": "auto",
+
+  // ── cmd mode ─────────────────────────────────────────────────────────────────
+  // shell command to run; prompt → stdin, commit message ← stdout
+  // examples:
+  //   "cmd": "ollama run llama3.2"
+  //   "cmd": "qc --stdin"
+  // "cmd": ""
 }
 `;
 

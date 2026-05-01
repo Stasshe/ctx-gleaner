@@ -51,15 +51,10 @@ describe("install and prepare commands", () => {
       expect(settings).toContain("_stop");
 
       const globalConfig = await readFile(
-        join(fakeHome, ".gle", "glerc.json"),
-        "utf8",
-      );
-      const globalPrompt = await readFile(
-        join(fakeHome, ".gle", "prompt.md"),
+        join(fakeHome, ".gle", "glerc.jsonc"),
         "utf8",
       );
       expect(globalConfig).toContain("gemini-2.5-flash");
-      expect(globalPrompt).toContain("git コミットメッセージ");
     } finally {
       await rm(fakeHome, { recursive: true, force: true });
       await rm(nonRepo, { recursive: true, force: true });
