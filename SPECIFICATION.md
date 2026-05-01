@@ -170,19 +170,13 @@ API キーは環境変数のみで管理する。`~/.gle/glerc.json` には書�
 
 ### 4.1 インストール方法
 
-**--save-dev（推奨）**:
-```bash
-npm install --save-dev ctx-gleaner
-npx gle install
-```
-
-**グローバル**:
+**グローバルのみ**:
 ```bash
 npm install -g ctx-gleaner
 gle install
 ```
 
-`gle install` は実行時にローカルインストールかグローバルインストールかを自動判定する。
+Claude Code hooks は `~/.claude/settings.json` に保存されるため、hook の参照先はユーザー環境で安定して存在する必要がある。`--save-dev` でインストールすると hook が特定プロジェクトの `node_modules/ctx-gleaner` を指し、そのプロジェクトを削除・移動したときに hook が壊れる。そのため `gle install` はグローバルインストールのみをサポートする。
 
 ### 4.2 `gle install` の処理内容
 
@@ -207,8 +201,7 @@ API キーが未設定の場合、以下のように警告して処理を継続�
 
 #### ステップ 2: Claude Code hook スクリプトの配置
 
-`--save-dev` の場合: `node_modules/ctx-gleaner/dist/hooks/` 以下のスクリプトを参照パスとして使う  
-`-g` の場合: グローバルインストールされた `ctx-gleaner/dist/hooks/` 以下のスクリプトを参照パスとして使う
+グローバルインストールされた `gle` CLI の絶対パスを参照し、hook からは hidden subcommand を呼び出す。ローカル `node_modules/ctx-gleaner` から実行された `gle install` はエラーにする。
 
 #### ステップ 3: `~/.claude/settings.json` への hook 登録
 
@@ -222,7 +215,7 @@ API キーが未設定の場合、以下のように警告して処理を継続�
         "hooks": [
           {
             "type": "command",
-            "command": "node /path/to/ctx-gleaner/dist/hooks/user-prompt-submit.js"
+            "command": "node /path/to/global/bin/gle _user-prompt-submit"
           }
         ]
       }
@@ -232,7 +225,7 @@ API キーが未設定の場合、以下のように警告して処理を継続�
         "hooks": [
           {
             "type": "command",
-            "command": "node /path/to/ctx-gleaner/dist/hooks/stop.js",
+            "command": "node /path/to/global/bin/gle _stop",
             "async": true
           }
         ]
@@ -267,14 +260,14 @@ API キーが未設定の場合、以下のように警告して処理を継続�
 ```sh
 #!/usr/bin/env sh
 # gle: clear collected context after successful commit
-node "$(npm root)/.bin/gle" _post-commit
+node /path/to/global/bin/gle _post-commit
 ```
 
 既に `.husky/post-commit` が存在する場合は末尾に追記:
 
 ```sh
 # gle: clear collected context after successful commit
-node "$(npm root)/.bin/gle" _post-commit
+node /path/to/global/bin/gle _post-commit
 ```
 
 ファイルに実行権限を付与する（`chmod +x`）。`git config --global core.hooksPath` は変更しない。
@@ -315,6 +308,7 @@ gle のセットアップが完了しました。
 ### 5.1 UserPromptSubmit Hook
 
 **ファイル**: `dist/hooks/user-prompt-submit.js`  
+**install 登録コマンド**: `node /path/to/global/bin/gle _user-prompt-submit`
 **トリガー**: Claude Code でユーザーがプロンプトを送信するたびに発火  
 **非同期**: false（同期）
 
@@ -350,6 +344,7 @@ gle のセットアップが完了しました。
 ### 5.2 Stop Hook
 
 **ファイル**: `dist/hooks/stop.js`  
+**install 登録コマンド**: `node /path/to/global/bin/gle _stop`
 **トリガー**: Claude Code がレスポンスを完了するたびに発火  
 **非同期**: true（`async: true`）
 
@@ -712,7 +707,7 @@ git hook:
 ```json
 {
   "name": "ctx-gleaner",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "bin": {
     "gle": "./bin/gle.js"
   },

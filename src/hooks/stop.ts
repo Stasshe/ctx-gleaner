@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { pathToFileURL } from "node:url";
 import { appendStopContext } from "../context.js";
 import { getContextFilePath, isGitRepository } from "../git.js";
 import { extractAssistantText, truncateTail } from "../transcript.js";
@@ -9,7 +10,7 @@ interface StopPayload {
   transcript_path?: string;
 }
 
-async function readStdin(): Promise<string> {
+export async function readStdin(): Promise<string> {
   const chunks: Buffer[] = [];
   for await (const chunk of process.stdin) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
@@ -35,7 +36,7 @@ export async function handleStopPayload(payload: StopPayload): Promise<void> {
   await appendStopContext(contextPath, truncateTail(assistantText, 800));
 }
 
-async function main(): Promise<void> {
+export async function runStopHook(): Promise<void> {
   const raw = await readStdin();
   if (!raw.trim()) {
     return;
@@ -44,7 +45,9 @@ async function main(): Promise<void> {
   await handleStopPayload(JSON.parse(raw) as StopPayload);
 }
 
-main().catch((error) => {
-  console.error(`gle hook error: ${(error as Error).message}`);
-  process.exit(0);
-});
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  runStopHook().catch((error) => {
+    console.error(`gle hook error: ${(error as Error).message}`);
+    process.exit(0);
+  });
+}

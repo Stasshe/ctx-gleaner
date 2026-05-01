@@ -1,12 +1,13 @@
 import { appendPromptContext } from "../context.js";
 import { getContextFilePath, isGitRepository } from "../git.js";
+import { pathToFileURL } from "node:url";
 
 interface UserPromptPayload {
   cwd?: string;
   prompt?: string;
 }
 
-async function readStdin(): Promise<string> {
+export async function readStdin(): Promise<string> {
   const chunks: Buffer[] = [];
   for await (const chunk of process.stdin) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
@@ -27,7 +28,7 @@ export async function handleUserPromptSubmitPayload(
   await appendPromptContext(contextPath, payload.prompt);
 }
 
-async function main(): Promise<void> {
+export async function runUserPromptSubmitHook(): Promise<void> {
   const raw = await readStdin();
   if (!raw.trim()) {
     return;
@@ -35,7 +36,9 @@ async function main(): Promise<void> {
   await handleUserPromptSubmitPayload(JSON.parse(raw) as UserPromptPayload);
 }
 
-main().catch((error) => {
-  console.error(`gle hook error: ${(error as Error).message}`);
-  process.exit(0);
-});
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  runUserPromptSubmitHook().catch((error) => {
+    console.error(`gle hook error: ${(error as Error).message}`);
+    process.exit(0);
+  });
+}

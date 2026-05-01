@@ -6,11 +6,10 @@ import { getCoreHooksPath, getContextFilePath } from "../git.js";
 import {
   getClaudeSettingsPath,
   getDefaultHooksDir,
-  getDistHookPath,
   getGlobalConfigPath,
   getGlobalPromptPath,
 } from "../paths.js";
-import { type ClaudeSettings, hasClaudeHook } from "./install-shared.js";
+import { type ClaudeSettings, hasClaudeHookSubcommand } from "./install-shared.js";
 
 async function exists(path: string): Promise<boolean> {
   return stat(path)
@@ -24,8 +23,6 @@ export async function statusCommand(cwd: string): Promise<number> {
   const settings = await readFile(settingsPath, "utf8")
     .then((raw) => JSON.parse(raw) as ClaudeSettings)
     .catch(() => ({} as ClaudeSettings));
-  const userPromptCommand = `node ${getDistHookPath("user-prompt-submit")}`;
-  const stopCommand = `node ${getDistHookPath("stop")}`;
   const configuredHooksPath = await getCoreHooksPath();
   const hookPath = configuredHooksPath ?? getDefaultHooksDir();
   const postCommitPath = join(hookPath, "post-commit");
@@ -40,15 +37,15 @@ export async function statusCommand(cwd: string): Promise<number> {
   console.log("");
   console.log("Claude Code hooks:");
   console.log(
-    `  ${hasClaudeHook(settings, "UserPromptSubmit", userPromptCommand) ? "✓" : "✗"} UserPromptSubmit  ${settingsPath}`,
+    `  ${hasClaudeHookSubcommand(settings, "UserPromptSubmit", "_user-prompt-submit") ? "✓" : "✗"} UserPromptSubmit  ${settingsPath}`,
   );
   console.log(
-    `  ${hasClaudeHook(settings, "Stop", stopCommand, true) ? "✓" : "✗"} Stop              ${settingsPath}`,
+    `  ${hasClaudeHookSubcommand(settings, "Stop", "_stop") ? "✓" : "✗"} Stop              ${settingsPath}`,
   );
   console.log("");
   console.log("git hook:");
   console.log(
-    `  ${postCommitContent.includes(`node ${getDistHookPath("post-commit")}`) ? "✓" : "✗"} post-commit       ${postCommitPath}`,
+    `  ${postCommitContent.includes(" _post-commit") ? "✓" : "✗"} post-commit       ${postCommitPath}`,
   );
   console.log(
     `  ${configuredHooksPath ? "✓" : "✗"} core.hooksPath    ${hookPath}`,

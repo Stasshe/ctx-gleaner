@@ -13,6 +13,7 @@ import {
 } from "../paths.js";
 import {
   type ClaudeSettings,
+  removeClaudeHookBySubcommand,
   removeClaudeHookByScriptName,
   removeClaudeHook,
   removeAnyManagedPostCommitBlock,
@@ -35,6 +36,8 @@ async function uninstallClaudeHooks(): Promise<void> {
   removeClaudeHook(settings, "Stop", `node ${getDistHookPath("stop")}`);
   removeClaudeHookByScriptName(settings, "UserPromptSubmit", "user-prompt-submit");
   removeClaudeHookByScriptName(settings, "Stop", "stop");
+  removeClaudeHookBySubcommand(settings, "UserPromptSubmit", "_user-prompt-submit");
+  removeClaudeHookBySubcommand(settings, "Stop", "_stop");
 
   await writeFile(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
 }

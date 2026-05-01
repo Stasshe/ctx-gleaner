@@ -52,6 +52,20 @@ export function hasClaudeHook(
   );
 }
 
+export function hasClaudeHookSubcommand(
+  settings: ClaudeSettings,
+  hookName: "UserPromptSubmit" | "Stop",
+  subcommand: string,
+): boolean {
+  const existing = settings.hooks?.[hookName] ?? [];
+  return existing.some((group) =>
+    (group.hooks ?? []).some((hook) => {
+      const command = typeof hook.command === "string" ? hook.command : "";
+      return hook.type === "command" && command.endsWith(` ${subcommand}`);
+    }),
+  );
+}
+
 export function mergeClaudeHook(
   settings: ClaudeSettings,
   hookName: "UserPromptSubmit" | "Stop",
@@ -116,6 +130,36 @@ export function removeClaudeHookByScriptName(
       const nextHooks = (group.hooks ?? []).filter((hook) => {
         const command = typeof hook.command === "string" ? hook.command : "";
         const matched = hook.type === "command" && command.endsWith(suffix);
+        changed ||= matched;
+        return !matched;
+      });
+      return {
+        ...group,
+        hooks: nextHooks,
+      };
+    })
+    .filter((group) => (group.hooks?.length ?? 0) > 0);
+
+  settings.hooks![hookName] = nextGroups;
+  return changed;
+}
+
+export function removeClaudeHookBySubcommand(
+  settings: ClaudeSettings,
+  hookName: "UserPromptSubmit" | "Stop",
+  subcommand: string,
+): boolean {
+  const groups = settings.hooks?.[hookName];
+  if (!groups) {
+    return false;
+  }
+
+  let changed = false;
+  const nextGroups = groups
+    .map((group) => {
+      const nextHooks = (group.hooks ?? []).filter((hook) => {
+        const command = typeof hook.command === "string" ? hook.command : "";
+        const matched = hook.type === "command" && command.endsWith(` ${subcommand}`);
         changed ||= matched;
         return !matched;
       });

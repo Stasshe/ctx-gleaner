@@ -1,7 +1,9 @@
 import { describe, expect, test } from "vitest";
 import {
   hasClaudeHook,
+  hasClaudeHookSubcommand,
   mergeClaudeHook,
+  removeClaudeHookBySubcommand,
   removeClaudeHookByScriptName,
   removeAnyManagedPostCommitBlock,
   removeClaudeHook,
@@ -36,6 +38,15 @@ describe("install shared helpers", () => {
       ),
     ).toBe(true);
     expect(settings.hooks?.UserPromptSubmit).toEqual([]);
+  });
+
+  test("detects and removes Claude hook entries by hidden subcommand", () => {
+    const settings: ClaudeSettings = {};
+    mergeClaudeHook(settings, "Stop", "node /usr/local/bin/gle _stop", true);
+
+    expect(hasClaudeHookSubcommand(settings, "Stop", "_stop")).toBe(true);
+    expect(removeClaudeHookBySubcommand(settings, "Stop", "_stop")).toBe(true);
+    expect(hasClaudeHookSubcommand(settings, "Stop", "_stop")).toBe(false);
   });
 
   test("appends managed post-commit block without clobbering existing script", () => {

@@ -4,6 +4,8 @@ import { contextCommand } from "./commands/context.js";
 import { installCommand } from "./commands/install.js";
 import { statusCommand } from "./commands/status.js";
 import { uninstallCommand } from "./commands/uninstall.js";
+import { runStopHook } from "./hooks/stop.js";
+import { runUserPromptSubmitHook } from "./hooks/user-prompt-submit.js";
 
 function printHelp(): void {
   console.log(`gle
@@ -36,9 +38,15 @@ async function main(): Promise<number> {
       return contextCommand(cwd, args);
     case "_post-commit":
       return postCommitCommand(cwd);
+    case "_user-prompt-submit":
+      await runUserPromptSubmitHook();
+      return 0;
+    case "_stop":
+      await runStopHook();
+      return 0;
     case "--version":
     case "-v":
-      console.log("0.3.0");
+      console.log("0.3.1");
       return 0;
     case "--help":
     case "-h":

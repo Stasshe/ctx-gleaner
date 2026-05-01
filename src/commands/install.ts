@@ -1,19 +1,41 @@
 import { chmod, mkdir, readFile, stat, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { resolveConfig } from "../config.js";
 import { getCoreHooksPath, getGitRoot, runGit, setCoreHooksPath } from "../git.js";
 import {
   getClaudeBackupPath,
   getClaudeSettingsPath,
   getDefaultHooksDir,
-  getDistHookPath,
 } from "../paths.js";
 import {
   type ClaudeSettings,
   mergeClaudeHook,
   removeClaudeHookByScriptName,
+  removeClaudeHookBySubcommand,
   upsertPostCommitScript,
 } from "./install-shared.js";
+
+function quoteShellArg(value: string): string {
+  return `'${value.replaceAll("'", "'\\''")}'`;
+}
+
+function getGlobalCliPath(): string {
+  const cliPath = resolve(process.argv[1] ?? "");
+  if (
+    cliPath.endsWith(`${join("dist", "cli.js")}`) ||
+    cliPath.includes(`${join("node_modules", ".bin", "gle")}`) ||
+    cliPath.includes(`${join("node_modules", "ctx-gleaner")}`)
+  ) {
+    throw new Error(
+      "gle install must be run from a global install. Run: npm install -g ctx-gleaner && gle install",
+    );
+  }
+  return cliPath;
+}
+
+function buildCliCommand(subcommand: string): string {
+  return `node ${quoteShellArg(getGlobalCliPath())} ${subcommand}`;
+}
 
 async function ensureClaudeInstalled(): Promise<void> {
   try {
@@ -61,11 +83,13 @@ async function installClaudeHooks(): Promise<void> {
   }
 
   const settings = await loadSettings(settingsPath);
-  const userPromptCommand = `node ${getDistHookPath("user-prompt-submit")}`;
-  const stopCommand = `node ${getDistHookPath("stop")}`;
+  const userPromptCommand = buildCliCommand("_user-prompt-submit");
+  const stopCommand = buildCliCommand("_stop");
 
   removeClaudeHookByScriptName(settings, "UserPromptSubmit", "user-prompt-submit");
   removeClaudeHookByScriptName(settings, "Stop", "stop");
+  removeClaudeHookBySubcommand(settings, "UserPromptSubmit", "_user-prompt-submit");
+  removeClaudeHookBySubcommand(settings, "Stop", "_stop");
   mergeClaudeHook(settings, "UserPromptSubmit", userPromptCommand);
   mergeClaudeHook(settings, "Stop", stopCommand, true);
 
@@ -73,7 +97,7 @@ async function installClaudeHooks(): Promise<void> {
 }
 
 async function createPostCommitScript(targetPath: string): Promise<void> {
-  const command = `node ${getDistHookPath("post-commit")}`;
+  const command = buildCliCommand("_post-commit");
   const existing = await readFile(targetPath, "utf8").catch(() => "");
   const content = upsertPostCommitScript(existing, command);
   await mkdir(dirname(targetPath), { recursive: true });
@@ -84,7 +108,7 @@ async function createPostCommitScript(targetPath: string): Promise<void> {
 async function installHuskyPostCommit(projectRoot: string): Promise<string> {
   const huskyPath = join(projectRoot, ".husky", "post-commit");
   const existing = await readFile(huskyPath, "utf8").catch(() => "");
-  const command = `node ${getDistHookPath("post-commit")}`;
+  const command = buildCliCommand("_post-commit");
   const nextContent = upsertPostCommitScript(existing, command);
   await writeFile(huskyPath, nextContent, "utf8");
   await chmod(huskyPath, 0o755);
@@ -119,6 +143,7 @@ export async function installCommand(cwd: string): Promise<number> {
     throw new Error("Node.js >= 18 is required");
   }
 
+  getGlobalCliPath();
   await ensureClaudeInstalled();
   await ensureClaudeCli();
 

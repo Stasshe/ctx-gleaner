@@ -141,19 +141,12 @@ Files that were renamed and also modified keep their content diff, so signal is 
 
 ## Installation
 
-**Per-project (recommended)**
-
-```bash
-npm install --save-dev ctx-gleaner
-npx gle install
-```
-
-**Global**
-
 ```bash
 npm install -g ctx-gleaner
 gle install
 ```
+
+ctx-gleaner is installed globally because Claude Code hooks are stored in the global `~/.claude/settings.json`. A per-project `--save-dev` install would make those hooks point at that project's `node_modules`, which breaks when the project is moved, removed, or used only as a temporary install check.
 
 `gle install` does three things:
 
