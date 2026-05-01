@@ -1,5 +1,6 @@
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
+import { dirname } from "node:path";
 import { resolveConfig } from "../config.js";
 import { isContextEffectivelyEmpty, readContextFile } from "../context.js";
 import {
@@ -79,6 +80,7 @@ export async function generateCommand(cwd: string): Promise<number> {
   });
 
   const outputPath = await getGeneratedMsgPath(cwd);
+  await mkdir(dirname(outputPath), { recursive: true });
   await writeFile(outputPath, `${message.trim()}\n`, "utf8");
   print(`gle: generated message saved to ${outputPath}`);
 
