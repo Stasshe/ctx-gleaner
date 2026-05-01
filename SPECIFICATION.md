@@ -180,7 +180,7 @@ Claude Code hooks は `~/.claude/settings.json` に保存されるため、hook 
 
 ### 4.2 `gle install` の処理内容
 
-以下を順に実行する。エラーが発生した場合は途中で停止し、ロールバック手順を表示する。
+`gle install` はユーザー単位の Claude Code hook だけを設定する。git リポジトリ外でも実行できる。Claude Code hook は、実行時の `cwd` が git リポジトリではない場合は stdout へ何も出さず exit 0 する。
 
 #### ステップ 1: 前提確認
 
@@ -237,7 +237,21 @@ API キーが未設定の場合、以下のように警告して処理を継続�
 
 `settings.json` が存在しない場合は新規作成する。変更前の `settings.json` を `~/.claude/settings.json.gle-backup` として保存する。
 
-#### ステップ 4: git hook の設定
+#### ステップ 4: 完了表示
+
+```
+✓ Claude Code hooks を登録しました (~/.claude/settings.json)
+
+gle のユーザーセットアップが完了しました。
+次回 Claude Code セッションから自動でコンテキストが収集されます。
+repo ごとの post-commit cleanup が必要な場合は、その repo で gle prepare を実行してください。
+
+アンインストール: gle uninstall
+```
+
+### 4.3 `gle prepare` の処理内容
+
+`gle prepare` はリポジトリ単位の cleanup hook を設定する。git リポジトリ内でのみ実行できる。
 
 `post-commit` hook を設定する。役割は通常の `git commit` 実行後のコンテキストクリアのみ。
 
@@ -282,19 +296,13 @@ git config --global core.hooksPath ~/.gle/hooks
 
 `~/.gle/hooks/post-commit` を作成し実行権限を付与する。
 
-#### ステップ 5: 完了表示
+#### 完了表示
 
 ```
-✓ Claude Code hooks を登録しました (~/.claude/settings.json)
 ✓ git post-commit hook を設定しました (~/.gle/hooks)
-
-gle のセットアップが完了しました。
-次回 Claude Code セッションから自動でコンテキストが収集されます。
-
-アンインストール: gle uninstall
 ```
 
-### 4.3 `gle uninstall` の処理内容
+### 4.4 `gle uninstall` の処理内容
 
 - `~/.claude/settings.json` から gle の hook エントリを削除
 - `~/.gle/hooks/post-commit` を削除
@@ -639,6 +647,7 @@ OpenAI 互換フォーマットで送受信する。ローカル LLM（Ollama、
 | コマンド | 説明 |
 |---|---|
 | `gle install` | セットアップを実行 |
+| `gle prepare` | 現在のリポジトリに post-commit cleanup hook を設定 |
 | `gle uninstall` | セットアップを取り消す |
 | `gle commit [git flags]` | コンテキストと staged diff からメッセージを生成してコミット |
 | `gle commit --edit [git flags]` | 生成後エディタを起動してメッセージを確認・編集してからコミット |
@@ -707,7 +716,7 @@ git hook:
 ```json
 {
   "name": "ctx-gleaner",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "bin": {
     "gle": "./bin/gle.js"
   },

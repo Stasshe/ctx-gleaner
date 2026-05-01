@@ -99,4 +99,26 @@ describe("Claude hook to commit flow", () => {
       await rm(repoDir, { recursive: true, force: true });
     }
   });
+
+  test("ignores Claude hook payloads outside git repositories", async () => {
+    const nonRepo = await mkdtemp(join(tmpdir(), "gle-claude-nonrepo-"));
+
+    try {
+      await expect(
+        handleUserPromptSubmitPayload({
+          cwd: nonRepo,
+          prompt: "this should be ignored",
+        }),
+      ).resolves.toBeUndefined();
+      await expect(
+        handleStopPayload({
+          cwd: nonRepo,
+          transcript_path: join(nonRepo, "missing.jsonl"),
+          stop_hook_active: false,
+        }),
+      ).resolves.toBeUndefined();
+    } finally {
+      await rm(nonRepo, { recursive: true, force: true });
+    }
+  });
 });

@@ -152,9 +152,16 @@ ctx-gleaner is installed globally because Claude Code hooks are stored in the gl
 
 - Registers `UserPromptSubmit` and `Stop` hooks in `~/.claude/settings.json`
 - Backs up the previous settings file to `~/.claude/settings.json.gle-backup`
-- Sets up a `post-commit` hook for context cleanup
 
-For projects using Husky v9+, ctx-gleaner appends to `.husky/post-commit`. Otherwise it uses an existing `core.hooksPath` if present, or creates `~/.gle/hooks`.
+`gle install` is user-level and does not require a Git repository. Claude hooks are safe in repositories where you do not use ctx-gleaner: if the current working directory is not a Git repository, the hooks exit without output.
+
+For repo-level cleanup after normal `git commit`, run this inside each repository where you want stale context to be cleared automatically:
+
+```bash
+gle prepare
+```
+
+For projects using Husky v9+, `gle prepare` appends to `.husky/post-commit`. Otherwise it uses an existing `core.hooksPath` if present, or creates `~/.gle/hooks`.
 
 ---
 
@@ -237,7 +244,8 @@ gle status
 
 | Command | Description |
 |---|---|
-| `gle install` | Register Claude hooks and context cleanup hook |
+| `gle install` | Register global Claude Code hooks |
+| `gle prepare` | Install repo-level post-commit context cleanup |
 | `gle uninstall` | Remove ctx-gleaner hook entries |
 | `gle commit [git flags]` | Generate a message from context + staged diff, then commit |
 | `gle status` | Show setup, provider, config, and context status |

@@ -138,6 +138,38 @@ function printApiKeyWarning(provider: string): void {
   }
 }
 
+async function installGitHook(cwd: string): Promise<string> {
+  const projectRoot = await getGitRoot(cwd);
+  const huskyDir = join(projectRoot, ".husky");
+  const hasHuskyDir = await stat(huskyDir)
+    .then((value: { isDirectory: () => boolean }) => value.isDirectory())
+    .catch(() => false);
+
+  if (hasHuskyDir) {
+    return installHuskyPostCommit(projectRoot);
+  }
+
+  if (await detectLegacyHusky(projectRoot)) {
+    console.warn(
+      "⚠ Husky v8 が検出されました。gle は Husky v9+ のみ自動対応します。",
+    );
+  }
+
+  const existingHooksPath = await getCoreHooksPath();
+  if (existingHooksPath) {
+    const postCommitPath = join(existingHooksPath, "post-commit");
+    await createPostCommitScript(postCommitPath);
+    return postCommitPath;
+  }
+
+  const hooksDir = getDefaultHooksDir();
+  await mkdir(hooksDir, { recursive: true });
+  await setCoreHooksPath(hooksDir);
+  const postCommitPath = join(hooksDir, "post-commit");
+  await createPostCommitScript(postCommitPath);
+  return postCommitPath;
+}
+
 export async function installCommand(cwd: string): Promise<number> {
   if (Number(process.versions.node.split(".")[0]) < 18) {
     throw new Error("Node.js >= 18 is required");
@@ -151,44 +183,22 @@ export async function installCommand(cwd: string): Promise<number> {
   printApiKeyWarning(config.provider);
   await installClaudeHooks();
 
-  const projectRoot = await getGitRoot(cwd);
-  const huskyDir = join(projectRoot, ".husky");
-  const hasHuskyDir = await stat(huskyDir)
-    .then((value: { isDirectory: () => boolean }) => value.isDirectory())
-    .catch(() => false);
-
-  let hookPathDescription = "";
-  if (hasHuskyDir) {
-    hookPathDescription = await installHuskyPostCommit(projectRoot);
-  } else {
-    if (await detectLegacyHusky(projectRoot)) {
-      console.warn(
-        "⚠ Husky v8 が検出されました。gle は Husky v9+ のみ自動対応します。",
-      );
-    }
-
-    const existingHooksPath = await getCoreHooksPath();
-    if (existingHooksPath) {
-      const postCommitPath = join(existingHooksPath, "post-commit");
-      await createPostCommitScript(postCommitPath);
-      hookPathDescription = postCommitPath;
-    } else {
-      const hooksDir = getDefaultHooksDir();
-      await mkdir(hooksDir, { recursive: true });
-      await setCoreHooksPath(hooksDir);
-      const postCommitPath = join(hooksDir, "post-commit");
-      await createPostCommitScript(postCommitPath);
-      hookPathDescription = postCommitPath;
-    }
-  }
-
   console.log(`✓ Claude Code hooks を登録しました (${getClaudeSettingsPath()})`);
-  console.log(`✓ git post-commit hook を設定しました (${hookPathDescription})`);
   console.log("");
-  console.log("gle のセットアップが完了しました。");
+  console.log("gle のユーザーセットアップが完了しました。");
   console.log("次回 Claude Code セッションから自動でコンテキストが収集されます。");
+  console.log("repo ごとの post-commit cleanup が必要な場合は、その repo で gle prepare を実行してください。");
   console.log("");
   console.log("アンインストール: gle uninstall");
 
+  return 0;
+}
+
+export async function prepareCommand(cwd: string): Promise<number> {
+  getGlobalCliPath();
+  await ensureClaudeInstalled();
+  const hookPathDescription = await installGitHook(cwd);
+
+  console.log(`✓ git post-commit hook を設定しました (${hookPathDescription})`);
   return 0;
 }

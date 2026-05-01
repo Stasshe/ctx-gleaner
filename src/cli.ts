@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { commitCommand, postCommitCommand } from "./commands/commit.js";
 import { contextCommand } from "./commands/context.js";
-import { installCommand } from "./commands/install.js";
+import { installCommand, prepareCommand } from "./commands/install.js";
 import { statusCommand } from "./commands/status.js";
 import { uninstallCommand } from "./commands/uninstall.js";
 import { runStopHook } from "./hooks/stop.js";
@@ -12,6 +12,7 @@ function printHelp(): void {
 
 Usage:
   gle install
+  gle prepare
   gle uninstall
   gle commit [git flags]
   gle commit --edit [git flags]
@@ -28,6 +29,8 @@ async function main(): Promise<number> {
   switch (command) {
     case "install":
       return installCommand(cwd);
+    case "prepare":
+      return prepareCommand(cwd);
     case "uninstall":
       return uninstallCommand(cwd);
     case "commit":
@@ -46,7 +49,7 @@ async function main(): Promise<number> {
       return 0;
     case "--version":
     case "-v":
-      console.log("0.3.1");
+      console.log("0.3.2");
       return 0;
     case "--help":
     case "-h":
