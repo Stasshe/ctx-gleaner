@@ -1,5 +1,6 @@
 import { stripCodeFences } from "../utils.js";
 import type { CommitGenerationInput } from "../types.js";
+import { PROVIDER_TIMEOUT_MS } from "../constants.js";
 import { BaseProvider } from "./base.js";
 
 export class LiteLlmProvider extends BaseProvider {
@@ -15,7 +16,7 @@ export class LiteLlmProvider extends BaseProvider {
     }
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15_000);
+    const timeout = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
 
     try {
       const response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {

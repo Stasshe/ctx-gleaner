@@ -3,6 +3,7 @@ export const CONTEXT_HEADER = "<!-- gle context -->\n";
 
 export const DEFAULT_MAX_DIFF_CHARS = 8000;
 export const DEFAULT_LANGUAGE = "auto";
+export const PROVIDER_TIMEOUT_MS = 15_000;
 
 export const DEFAULT_PROVIDER = "gemini";
 
@@ -32,3 +33,9 @@ export const GLE_ENV_VARS = [
   "GLE_LITELLM_BASE_URL",
   "GLE_LITELLM_MODEL",
 ] as const;
+
+export const PROVIDER_API_KEY_ENV: Record<string, string> = {
+  gemini: "GLE_GEMINI_API_KEY",
+  openai: "GLE_OPENAI_API_KEY",
+  litellm: "GLE_LITELLM_API_KEY",
+};

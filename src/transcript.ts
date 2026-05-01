@@ -2,7 +2,7 @@ export interface HookTranscriptRecord {
   role?: string;
   content?: string;
   message?: {
-    content?: string | Array<{ type?: string; text?: string }>;
+    content?: string | Array<{ type: string; text?: string }>;
   };
 }
 

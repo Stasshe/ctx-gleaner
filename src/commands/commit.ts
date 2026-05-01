@@ -14,12 +14,13 @@ import {
   hasMergeInProgress,
   hasStagedChanges,
 } from "../git.js";
+import { PROVIDER_API_KEY_ENV } from "../constants.js";
 import { createProvider } from "../providers/index.js";
 import { createTempCommitFile } from "../utils.js";
 import { printError } from "../output.js";
 
 function hasFlag(args: string[], ...targets: string[]): boolean {
-  return args.some((arg, index) => {
+  return args.some((arg) => {
     if (targets.includes(arg)) {
       return true;
     }
@@ -106,7 +107,8 @@ export async function commitCommand(cwd: string, rawArgs: string[]): Promise<num
   const config = await resolveConfig(cwd);
   const provider = createProvider(config);
   if (!provider.validate()) {
-    printError("gle: provider is not configured. Falling back to git commit.");
+    const envKey = PROVIDER_API_KEY_ENV[config.provider] ?? "provider API key";
+    printError(`gle: ${envKey} is not set. Falling back to git commit.`);
     return runGitCommit(cwd, rawArgs);
   }
 

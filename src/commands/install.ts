@@ -77,7 +77,7 @@ async function ensureUserConfigFiles(): Promise<void> {
   }
 }
 
-async function ensureClaudeInstalled(): Promise<void> {
+async function ensureGitInstalled(): Promise<void> {
   try {
     await runGit(["--version"]);
   } catch {
@@ -216,7 +216,7 @@ export async function installCommand(cwd: string): Promise<number> {
   }
 
   getGlobalCliPath();
-  await ensureClaudeInstalled();
+  await ensureGitInstalled();
   await ensureClaudeCli();
 
   const config = await resolveConfig(cwd);
@@ -238,7 +238,7 @@ export async function installCommand(cwd: string): Promise<number> {
 
 export async function prepareCommand(cwd: string): Promise<number> {
   getGlobalCliPath();
-  await ensureClaudeInstalled();
+  await ensureGitInstalled();
   const hookPathDescription = await installGitHook(cwd);
 
   print(`✓ git post-commit hook を設定しました (${hookPathDescription})`);
