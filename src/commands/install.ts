@@ -7,7 +7,6 @@ import {
   getClaudeSettingsPath,
   getDefaultHooksDir,
   getGlobalConfigPath,
-  getGlobalPromptPath,
 } from "../paths.js";
 import {
   type ClaudeSettings,
@@ -48,32 +47,14 @@ const DEFAULT_GLOBAL_CONFIG = `{
 }
 `;
 
-const DEFAULT_PROMPT_MD = `あなたは git コミットメッセージの専門家です。
-以下の情報をもとに、簡潔で明確なコミットメッセージを生成してください。
-
-## ルール
-- 1行目は Conventional Commits 形式を推奨する
-- 1行目は短く、変更の中心を表す
-- 必要な場合のみ空行の後に本文を書く
-- 本文では変更理由と重要な実装内容を箇条書きにする
-- コミットメッセージ以外の説明や前置きは出力しない
-`;
-
 async function ensureUserConfigFiles(): Promise<void> {
   const configPath = getGlobalConfigPath();
-  const promptPath = getGlobalPromptPath();
   await mkdir(dirname(configPath), { recursive: true });
 
   try {
     await readFile(configPath, "utf8");
   } catch {
     await writeFile(configPath, DEFAULT_GLOBAL_CONFIG, "utf8");
-  }
-
-  try {
-    await readFile(promptPath, "utf8");
-  } catch {
-    await writeFile(promptPath, DEFAULT_PROMPT_MD, "utf8");
   }
 }
 
@@ -225,11 +206,14 @@ export async function installCommand(cwd: string): Promise<number> {
   await installClaudeHooks();
 
   print(`✓ Claude Code hooks を登録しました (${getClaudeSettingsPath()})`);
-  print(`✓ ユーザー設定を確認しました (${getGlobalConfigPath()}, ${getGlobalPromptPath()})`);
+  print(`✓ ユーザー設定を確認しました (${getGlobalConfigPath()})`);
   print();
   print("gle のユーザーセットアップが完了しました。");
   print("次回 Claude Code セッションから自動でコンテキストが収集されます。");
   print("repo ごとの post-commit cleanup が必要な場合は、その repo で gle prepare を実行してください。");
+  print();
+  print("カスタムプロンプト: ~/.gle/prompt.md を作成するとデフォルトプロンプトを上書きできます。");
+  print("言語設定: gle lang [auto|en|ja|zh|ko|es]");
   print();
   print("アンインストール: gle uninstall");
 

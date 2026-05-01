@@ -18,19 +18,26 @@ export abstract class BaseProvider {
       : "auto";
 
     const templatePath = getBuiltinPromptPath(lang);
-    const template = await readFile(templatePath, "utf8");
+    const systemPrompt = (await readFile(templatePath, "utf8")).trimEnd();
 
-    const contextSection = params.contextMd.trim() || "なし";
-    const diffSection = params.diffBody.trim() || "なし";
+    const contextSection = params.contextMd.trim() || "none";
+    const diffSection = params.diffBody.trim() || "none";
     const truncatedNote = params.diffTruncated
-      ? `\n\n注記: diff 詳細は ${this.config.maxDiffChars} 文字で切り詰められています。`
+      ? `\n\nNote: diff details truncated at ${this.config.maxDiffChars} characters.`
       : "";
 
-    return template
-      .replace("{{CONTEXT}}", contextSection)
-      .replace("{{DIFF_STAT}}", params.diffStat.trim() || "なし")
-      .replace("{{DIFF_BODY}}", diffSection)
-      .replace("{{TRUNCATED_NOTE}}", truncatedNote);
+    return `${systemPrompt}
+
+## Work Context (AI Session Log)
+${contextSection}
+
+## Diff Summary
+${params.diffStat.trim() || "none"}
+
+## Diff Details
+${diffSection}${truncatedNote}
+
+Output the commit message only. No explanation or preamble.`;
   }
 
   abstract generateMessage(params: CommitGenerationInput): Promise<string>;
