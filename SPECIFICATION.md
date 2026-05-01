@@ -1,8 +1,8 @@
 # gle 仕様書
 
-**バージョン**: 0.1.0-draft  
+**バージョン**: 1.0.0  
 **最終更新**: 2026-05-01  
-**ステータス**: 設計フェーズ
+**ステータス**: 確定
 
 ---
 
@@ -10,7 +10,7 @@
 
 ### 1.1 プロダクトの目的
 
-`gle` は、Claude Code のセッション中に発生した「作業の意図（プロンプト）」と「作業結果の要約」をプロジェクトごとに自動収集し、`gle commit` 実行時に Gemini Flash API を使って高品質なコミットメッセージを自動生成する CLI ツールである。通常の `git commit` / `git commit -m` は変更せず、既存の Git ワークフローを妨げない。
+`gle` は、Claude Code のセッション中に発生した「作業の意図（プロンプト）」と「作業結果の要約」をプロジェクトごとに自動収集し、`gle commit` 実行時に LLM API を使って高品質なコミットメッセージを自動生成する CLI ツールである。通常の `git commit` / `git commit -m` は変更せず、既存の Git ワークフローを妨げない。
 
 ### 1.2 解決する問題
 
@@ -21,18 +21,7 @@
 
 ### 1.3 解決アプローチ
 
-Claude Code の公式 Hooks 機能（`UserPromptSubmit`, `Stop`）でプロンプトと作業要約を `.git/GLE_COMMIT_CONTEXT.md` に自動蓄積する。コミットメッセージ生成は `gle commit` コマンド内でのみ行い、staged diff と蓄積コンテキストを Gemini Flash に渡して生成する。通常の `git commit` は生成対象外とする。
-
-### 1.4 スコープ
-
-**v0.1 対象:**
-- Claude Code 対応のみ
-- Gemini Flash API によるメッセージ生成のみ
-
-**v0.1 対象外:**
-- Codex CLI 対応
-- GitHub Copilot 対応
-- 複数 AI エージェントの混在セッション
+Claude Code の公式 Hooks 機能（`UserPromptSubmit`, `Stop`）でプロンプトと作業要約を `.git/GLE_COMMIT_CONTEXT.md` に自動蓄積する。コミットメッセージ生成は `gle commit` コマンド内でのみ行い、staged diff と蓄積コンテキストを LLM に渡して生成する。通常の `git commit` は生成対象外とする。
 
 ---
 
@@ -54,8 +43,9 @@ Claude Code の公式 Hooks 機能（`UserPromptSubmit`, `Stop`）でプロン�
   │
   ├─ git diff --cached --find-renames で diff 取得・前処理
   ├─ .git/GLE_COMMIT_CONTEXT.md 読み込み
-  ├─ Gemini Flash API にリクエスト
+  ├─ Provider の generateMessage() を呼び出す
   ├─ 生成されたメッセージを一時ファイルに書き込み
+  ├─ --edit フラグがあればエディタを起動
   ├─ git commit -F <生成メッセージファイル> <pass-through flags> を実行
   └─ コミット成功時のみ .git/GLE_COMMIT_CONTEXT.md をリセット
 
@@ -70,15 +60,22 @@ Claude Code の公式 Hooks 機能（`UserPromptSubmit`, `Stop`）でプロン�
 ```
 gle (npm package)
 ├── bin/
-│   └── gle.js               # CLI エントリーポイント
+│   └── gle.js                       # CLI エントリーポイント
 ├── lib/
-│   ├── install.js           # install コマンド実装
-│   ├── uninstall.js         # uninstall コマンド実装
+│   ├── install.js                   # install コマンド実装
+│   ├── uninstall.js                 # uninstall コマンド実装
+│   ├── commit.js                    # commit コマンド実装
+│   ├── config.js                    # 設定読み込み（.glerc.json / 環境変数）
 │   ├── hooks/
-│   │   ├── user-prompt-submit.js  # Claude Code UserPromptSubmit hook
-│   │   ├── stop.js                # Claude Code Stop hook
-│   │   └── post-commit.js         # context clear hook
-│   └── gemini.js            # Gemini API クライアント
+│   │   ├── user-prompt-submit.js    # Claude Code UserPromptSubmit hook
+│   │   ├── stop.js                  # Claude Code Stop hook
+│   │   └── post-commit.js           # context clear hook
+│   └── providers/
+│       ├── index.js                 # Provider ファクトリ・選択ロジック
+│       ├── base.js                  # BaseProvider（抽象インターフェース）
+│       ├── gemini.js                # Gemini Flash API 実装
+│       ├── openai.js                # OpenAI API 実装
+│       └── litellm.js               # LiteLLM 実装
 └── package.json
 ```
 
@@ -114,9 +111,58 @@ JWTをセッション認証に切り替えて、既存のテストも修正し�
 
 ---
 
-## 3. インストール仕様
+## 3. 設定
 
-### 3.1 インストール方法
+### 3.1 設定の優先順位
+
+設定は以下の優先順位で解決される（上が高い）:
+
+1. 環境変数
+2. プロジェクトルートの `.glerc.json`
+3. デフォルト値
+
+### 3.2 `.glerc.json` スキーマ
+
+プロジェクトルート（`git rev-parse --show-toplevel` で取得）に配置する。
+
+```json
+{
+  "provider": "gemini",
+  "model": "gemini-2.0-flash",
+  "prompt": "カスタムプロンプト文字列（省略時はデフォルトプロンプトを使用）",
+  "maxDiffChars": 8000,
+  "language": "auto"
+}
+```
+
+| フィールド | 型 | デフォルト | 説明 |
+|---|---|---|---|
+| `provider` | string | `"gemini"` | 使用する Provider |
+| `model` | string | Provider ごとのデフォルト | 使用するモデル |
+| `prompt` | string | （後述） | BaseProvider で使うシステムプロンプト全文 |
+| `maxDiffChars` | number | `8000` | diff 本文の最大文字数 |
+| `language` | string | `"auto"` | コミットメッセージの言語（`"auto"` / `"ja"` / `"en"` など） |
+
+`.glerc.json` は `.gitignore` への追加を推奨するが、強制しない。API キーを直接書かない限り、コミットしても安全である。
+
+### 3.3 環境変数
+
+| 変数名 | 説明 |
+|---|---|
+| `GLE_PROVIDER` | 使用する Provider（`gemini` / `openai` / `litellm`） |
+| `GLE_GEMINI_API_KEY` | Gemini API キー |
+| `GLE_OPENAI_API_KEY` | OpenAI API キー |
+| `GLE_LITELLM_API_KEY` | LiteLLM API キー |
+| `GLE_LITELLM_BASE_URL` | LiteLLM プロキシ URL（省略時は LiteLLM デフォルト） |
+| `GLE_LITELLM_MODEL` | LiteLLM で使用するモデル |
+
+API キーは環境変数のみで管理する。`.glerc.json` には書かない。
+
+---
+
+## 4. インストール仕様
+
+### 4.1 インストール方法
 
 **--save-dev（推奨）**:
 ```bash
@@ -130,9 +176,9 @@ npm install -g gle
 gle install
 ```
 
-両方のインストール形態を同一の `gle install` コマンドでサポートする。`gle install` は実行時にローカルインストールかグローバルインストールかを自動判定する。
+`gle install` は実行時にローカルインストールかグローバルインストールかを自動判定する。
 
-### 3.2 `gle install` の処理内容
+### 4.2 `gle install` の処理内容
 
 以下を順に実行する。エラーが発生した場合は途中で停止し、ロールバック手順を表示する。
 
@@ -140,13 +186,15 @@ gle install
 
 - Node.js >= 18 の確認
 - Claude Code がインストールされているか確認（`claude --version`）
-- `GLE_GEMINI_API_KEY` 環境変数の存在確認
+- `GLE_PROVIDER` 環境変数の確認（デフォルト: `gemini`）
+- 指定された Provider に対応する API キー環境変数の確認
 
-`GLE_GEMINI_API_KEY` が未設定の場合、以下を表示して処理を継続する（警告扱い）:
+API キーが未設定の場合、以下のように警告して処理を継続する（エラーではなく警告扱い）:
 
 ```
 ⚠ GLE_GEMINI_API_KEY が設定されていません。
   コミットメッセージ生成を使用するには以下を ~/.zshrc または ~/.bashrc に追記してください:
+  export GLE_PROVIDER=gemini
   export GLE_GEMINI_API_KEY="your-api-key"
   取得先: https://aistudio.google.com/app/apikey
 ```
@@ -158,7 +206,7 @@ gle install
 
 #### ステップ 3: `~/.claude/settings.json` への hook 登録
 
-既存の `settings.json` を読み込み、`hooks` セクションに以下を **マージ**（上書きではなく追記）する。既に gle の hook が登録されている場合はスキップ。
+既存の `settings.json` を読み込み、`hooks` セクションに以下を **マージ**（上書きではなく追記）する。既に gle の hook が登録されている場合はスキップする。
 
 ```json
 {
@@ -188,13 +236,11 @@ gle install
 }
 ```
 
-`settings.json` が存在しない場合は新規作成する。
-
-バックアップ: 変更前の `settings.json` を `~/.claude/settings.json.gle-backup` として保存する。
+`settings.json` が存在しない場合は新規作成する。変更前の `settings.json` を `~/.claude/settings.json.gle-backup` として保存する。
 
 #### ステップ 4: git hook の設定
 
-`gle install` は、コミット成功後のコンテキストクリア用に `post-commit` hook を設定する。
+`post-commit` hook を設定する。役割は通常の `git commit` 実行後のコンテキストクリアのみ。
 
 **判定ロジック:**
 
@@ -225,8 +271,7 @@ node "$(npm root)/.bin/gle" _post-commit
 node "$(npm root)/.bin/gle" _post-commit
 ```
 
-ファイルに実行権限を付与する（`chmod +x`）。  
-`git config --global core.hooksPath` は変更しない。
+ファイルに実行権限を付与する（`chmod +x`）。`git config --global core.hooksPath` は変更しない。
 
 ---
 
@@ -237,8 +282,6 @@ git config --global core.hooksPath ~/.gle/hooks
 ```
 
 `~/.gle/hooks/post-commit` を作成し実行権限を付与する。
-
-**注意**: `post-commit` は補助機能であり、`gle commit` 本体はコミット成功時に自前でコンテキストをクリアする。hook は通常の `git commit` を使った場合の掃除用である。
 
 #### ステップ 5: 完了表示
 
@@ -252,7 +295,7 @@ gle のセットアップが完了しました。
 アンインストール: gle uninstall
 ```
 
-### 3.3 `gle uninstall` の処理内容
+### 4.3 `gle uninstall` の処理内容
 
 - `~/.claude/settings.json` から gle の hook エントリを削除
 - `~/.gle/hooks/post-commit` を削除
@@ -261,13 +304,13 @@ gle のセットアップが完了しました。
 
 ---
 
-## 4. Claude Code Hook 実装仕様
+## 5. Claude Code Hook 実装仕様
 
-### 4.1 UserPromptSubmit Hook
+### 5.1 UserPromptSubmit Hook
 
 **ファイル**: `lib/hooks/user-prompt-submit.js`  
 **トリガー**: Claude Code でユーザーがプロンプトを送信するたびに発火  
-**非同期**: false（同期。ただし処理は軽量なので問題なし）
+**非同期**: false（同期）
 
 **stdin で受け取る JSON**:
 ```json
@@ -283,9 +326,7 @@ gle のセットアップが完了しました。
 **処理フロー**:
 
 1. stdin から JSON をパース
-2. `cwd` フィールドで git リポジトリか確認  
-   `git -C <cwd> rev-parse --git-dir` を実行  
-   失敗（git リポジトリ外）の場合は何もせず exit 0
+2. `cwd` フィールドで git リポジトリか確認（`git -C <cwd> rev-parse --git-dir`）。失敗なら exit 0
 3. `.git/GLE_COMMIT_CONTEXT.md` のパスを解決
 4. ファイルが存在しない場合は `<!-- gle context -->` ヘッダ付きで新規作成
 5. 以下を追記:
@@ -298,13 +339,9 @@ gle のセットアップが完了しました。
    ```
 6. exit 0
 
-**エラーハンドリング**:
-- ファイル書き込みエラーは stderr に出力し exit 0（非ブロッキング）
-- JSON パースエラーは stderr に出力し exit 0
+**注意**: `UserPromptSubmit` の stdout は Claude が見えるコンテキストに追加されるため、stdout には何も出力しない。エラーは stderr のみ。
 
-**注意**: `UserPromptSubmit` の stdout は Claude が見えるコンテキストに追加されるため、stdout には何も出力しない。
-
-### 4.2 Stop Hook
+### 5.2 Stop Hook
 
 **ファイル**: `lib/hooks/stop.js`  
 **トリガー**: Claude Code がレスポンスを完了するたびに発火  
@@ -352,74 +389,12 @@ gle のセットアップが完了しました。
 }
 ```
 
-`content` が文字列の場合はそのまま使用。配列の場合は `type: "text"` のブロックを連結する。
+`content` が文字列の場合はそのまま使用。配列の場合は `type: "text"` のブロックを連結する。JSONL の各行のパースエラーはスキップして処理を継続する。
 
-**エラーハンドリング**:
-- `transcript_path` が存在しない、または読み込めない場合は何もせず exit 0
-- JSONL の各行のパースエラーはスキップして処理を継続
-- async hook なので exit コードは Claude の動作に影響しない
-
----
-
-## 5. コミット生成実装仕様
-
-### 5.1 `gle commit`
-
-**トリガー**: ユーザーが `gle commit [git flags]` を実行したとき
-
-**基本方針**:
-- AI 生成は `gle commit` の内部でのみ実行する
-- 通常の `git commit` / `git commit -m` / `git commit --amend` は上書きしない
-- `gle commit` は標準の `git commit` フラグを可能な限り pass-through する
-- コミット成功時のみ `.git/GLE_COMMIT_CONTEXT.md` をリセットする
-
-**スキップ条件:**
-
-以下のいずれかに該当する場合は生成せず、原則として通常の `git commit` にフォールバックする:
-- `--amend` が指定されている
-- `-m` / `--message` / `-F` / `--file` が指定されており、ユーザーが明示的にメッセージを与えている
-- `GLE_GEMINI_API_KEY` 環境変数が未設定
-- `.git/GLE_COMMIT_CONTEXT.md` が存在しない、かつ staged diff が空
-
-**処理フロー**:
-
-1. 引数を解析する
-2. スキップ条件に該当する場合は `git commit "$@"` を実行する
-3. `git diff --cached --find-renames --stat` で diff サマリーを取得
-4. `git diff --cached --find-renames -- . ':(exclude)*.lock' ':(exclude)package-lock.json'` で diff 本文を取得（最大 8000 文字に切り詰め）
-5. リネーム検出の前処理を行う
-6. `.git/GLE_COMMIT_CONTEXT.md` を読み込む（存在しない場合は空文字）
-7. Gemini Flash API にリクエストする
-8. 生成されたコミットメッセージを一時ファイルに保存する
-9. `git commit -F <tempfile> <pass-through flags>` を実行する
-10. `git commit` が成功した場合のみ `.git/GLE_COMMIT_CONTEXT.md` を空にリセットする
-11. 一時ファイルを削除して exit する
-
-**`--no-edit` の扱い**:
-
-`gle commit --no-edit` は、生成されたメッセージをそのまま採用してコミットする。通常の `git commit --no-edit` と異なり、生成結果を採用する入口として扱う。
-
-**`-m` / `--message` の扱い**:
-
-`gle commit -m "..."` は生成しない。ユーザーが明示的にメッセージを指定しているため、通常の `git commit -m "..."` と同じ意味で扱う。
-
-**`--amend` の扱い**:
-
-`gle commit --amend` は生成しない。既存メッセージを勝手に上書きしないため、通常の `git commit --amend` にフォールバックする。
-
-**エラーハンドリング**:
-- Gemini API エラー（ネットワーク、認証失敗等）の場合: stderr にエラーを出力し、通常の `git commit` にフォールバックする
-- タイムアウト: 15 秒
-- `git commit` が失敗した場合: `.git/GLE_COMMIT_CONTEXT.md` はリセットしない
-
-### 5.1.1 post-commit Hook
+### 5.3 post-commit Hook
 
 **ファイル**: `~/.gle/hooks/post-commit` または `.husky/post-commit`  
 **トリガー**: 通常の `git commit` が成功した後
-
-**役割**:
-- 通常の `git commit` / `git commit -m` を使った場合でも、古い Claude Code コンテキストが次回の `gle commit` に混ざらないように掃除する
-- コミットメッセージ生成は行わない
 
 **処理フロー**:
 
@@ -427,10 +402,58 @@ gle のセットアップが完了しました。
 2. `.git/GLE_COMMIT_CONTEXT.md` が存在する場合、ヘッダ行のみ残してリセット
 3. exit 0
 
-**エラーハンドリング**:
-- 失敗しても commit 自体はすでに成功しているため、stderr に警告を出して exit 0
+失敗しても commit 自体はすでに成功しているため、stderr に警告を出して exit 0。`gle commit` 本体もコミット成功時に自前でコンテキストをクリアするため、両方が実行されても冪等である。
 
-### 5.2 diff 前処理仕様
+---
+
+## 6. コミット生成実装仕様
+
+### 6.1 `gle commit`
+
+**基本方針**:
+- AI 生成は `gle commit` の内部でのみ実行する
+- 通常の `git commit` / `git commit -m` / `git commit --amend` は上書きしない
+- `gle commit` は標準の `git commit` フラグを可能な限り pass-through する
+- コミット成功時のみ `.git/GLE_COMMIT_CONTEXT.md` をリセットする
+- デフォルトは確認なしでそのままコミットする
+
+**フラグの扱い**:
+
+| フラグ | 動作 |
+|---|---|
+| （なし） | 生成→確認なしでそのままコミット |
+| `--edit` | 生成→エディタを起動してメッセージを確認・編集後コミット |
+| `-m` / `--message` / `-F` / `--file` | 生成をスキップ。通常の `git commit` にフォールバック |
+| `--amend` | 生成をスキップ。通常の `git commit --amend` にフォールバック |
+
+**スキップ条件（どれか一つでも該当すれば生成しない）**:
+- `-m` / `--message` / `-F` / `--file` / `--amend` が指定されている
+- 指定された Provider の API キーが未設定
+- staged diff が空、かつ `.git/GLE_COMMIT_CONTEXT.md` が空または存在しない
+
+**処理フロー**:
+
+1. 引数を解析する
+2. スキップ条件に該当する場合は `git commit "$@"` を実行して終了
+3. `config.js` で設定を解決する（環境変数 → `.glerc.json` → デフォルト値）
+4. Provider を初期化・検証する
+5. `git diff --cached --find-renames --stat` で diff サマリーを取得
+6. `git diff --cached --find-renames` でロックファイルを除外した diff 本文を取得（`maxDiffChars` 文字に切り詰め）
+7. リネーム検出の前処理を行う
+8. `.git/GLE_COMMIT_CONTEXT.md` を読み込む（存在しない場合は空文字）
+9. Provider の `generateMessage()` を呼び出す
+10. 生成されたメッセージを一時ファイルに保存する
+11. `--edit` フラグがある場合はエディタを起動する（`GIT_EDITOR` → `VISUAL` → `EDITOR` → `vi` の順で解決）
+12. `git commit -F <tempfile> <pass-through flags>` を実行する
+13. `git commit` が成功した場合のみ `.git/GLE_COMMIT_CONTEXT.md` を空にリセットする
+14. 一時ファイルを削除して exit する
+
+**エラーハンドリング**:
+- Provider API エラー（ネットワーク、認証失敗等）: stderr にエラーを出力し、通常の `git commit` にフォールバック
+- タイムアウト: 15 秒
+- `git commit` が失敗した場合: `.git/GLE_COMMIT_CONTEXT.md` はリセットしない
+
+### 6.2 diff 前処理仕様
 
 **リネーム検出**:
 
@@ -438,53 +461,80 @@ gle のセットアップが完了しました。
 git diff --cached --find-renames=50% --diff-filter=R --name-status
 ```
 
-出力例:
-```
-R095    src/old/auth.ts    src/new/auth.ts
-R100    src/old/user.ts    src/new/user.ts
-```
-
-リネームされたファイルが 3 件以上ある場合、diff 本文の代わりに以下の整形済みテキストを使用:
+リネームされたファイルが 3 件以上ある場合、diff 本文の代わりに以下の整形済みテキストを使用する:
 
 ```
 [リネーム検出: 5件]
 - src/old/auth.ts → src/new/auth.ts (similarity: 95%)
 - src/old/user.ts → src/new/user.ts (similarity: 100%)
-...（リネーム後にさらに変更があるファイルは別途 diff に含める）
 ```
 
-リネーム後にさらに内容変更がある場合（`git diff --cached --diff-filter=M` で検出）は、そのファイルの diff だけを別途取得して付加する。
+リネーム後にさらに内容変更があるファイルは、`git diff --cached --diff-filter=M` で取得した diff を別途付加する。
 
 **ロックファイル除外**:
 
-以下のファイルは diff から除外する:
-- `*.lock`
-- `package-lock.json`
-- `yarn.lock`
-- `pnpm-lock.yaml`
-- `Cargo.lock`
-- `Gemfile.lock`
+以下のパターンに一致するファイルは diff から除外する:
+
+```
+*.lock
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+Cargo.lock
+Gemfile.lock
+```
 
 **diff 文字数制限**:
 
-diff 本文は最大 8000 文字。超過した場合は切り詰め、その旨をプロンプトに明記する。
+diff 本文は `.glerc.json` の `maxDiffChars`（デフォルト 8000 文字）で切り詰める。超過した場合はその旨をプロンプトに明記する。
 
 ---
 
-## 6. Gemini API 仕様
+## 7. LLM プロバイダー仕様
 
-### 6.1 使用モデル
+### 7.1 Provider インターフェース（BaseProvider）
 
-`gemini-2.0-flash` （コスト・速度のバランスが最適）
+全プロバイダーは `BaseProvider` を継承し、以下のメソッドを実装する。プロンプトは `BaseProvider` で定義し、各 Provider 実装は共通プロンプトを使用する（`.glerc.json` の `prompt` で上書き可能）。
 
-### 6.2 リクエスト仕様
+```javascript
+class BaseProvider {
+  /**
+   * @param {Object} config - 解決済み設定オブジェクト
+   */
+  constructor(config) {
+    this.config = config;
+  }
 
-**エンドポイント**:
+  /**
+   * プロバイダーの検証（環境変数の確認など）
+   * @returns {boolean}
+   */
+  validate() {}
+
+  /**
+   * コミットメッセージ生成用プロンプトを組み立てる
+   * .glerc.json の prompt が設定されている場合はそちらを使用する
+   * @param {Object} params
+   * @param {string} params.contextMd
+   * @param {string} params.diffStat
+   * @param {string} params.diffBody
+   * @returns {string}
+   */
+  buildPrompt(params) {}
+
+  /**
+   * コミットメッセージを生成する
+   * @param {Object} params
+   * @param {string} params.contextMd - .git/GLE_COMMIT_CONTEXT.md の内容
+   * @param {string} params.diffStat  - git diff --stat の出力
+   * @param {string} params.diffBody  - diff 本文（maxDiffChars 文字以内）
+   * @returns {Promise<string>}
+   */
+  async generateMessage(params) {}
+}
 ```
-POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=<GLE_GEMINI_API_KEY>
-```
 
-**プロンプトフォーマット**:
+**デフォルトプロンプト**（`buildPrompt` の出力）:
 
 ```
 あなたは git コミットメッセージの専門家です。
@@ -495,7 +545,7 @@ POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:ge
 - 空行
 - 本文: 変更の理由と内容を箇条書きで記述（省略可）
 - Conventional Commits 形式（feat:, fix:, refactor: 等）を推奨
-- 言語: diffとコンテキストの言語に合わせる
+- 言語: <language の値。auto の場合は diff とコンテキストの言語に合わせる>
 
 ## 作業コンテキスト（AI セッションログ）
 <GLE_COMMIT_CONTEXT.md の内容。空の場合は「なし」>
@@ -504,14 +554,34 @@ POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:ge
 <git diff --stat の出力>
 
 ## diff 詳細
-<diff 本文（最大8000文字）>
+<diff 本文（最大 <maxDiffChars> 文字）>
 
 コミットメッセージのみを出力してください。説明や前置きは不要です。
 ```
 
-**パラメータ**:
+### 7.2 Provider の選択
+
+`providers/index.js` のファクトリが以下の優先順位で Provider を決定する:
+
+1. 環境変数 `GLE_PROVIDER`
+2. `.glerc.json` の `provider` フィールド
+3. デフォルト: `gemini`
+
+### 7.3 Gemini Provider
+
+**モデルデフォルト**: `gemini-2.0-flash`（`.glerc.json` の `model` で上書き可）
+
+**環境変数**: `GLE_GEMINI_API_KEY`
+
+**エンドポイント**:
+```
+POST https://generativelanguage.googleapis.com/v1beta/models/<model>:generateContent?key=<GLE_GEMINI_API_KEY>
+```
+
+**リクエストボディ**:
 ```json
 {
+  "contents": [{ "parts": [{ "text": "<buildPrompt() の出力>" }] }],
   "generationConfig": {
     "temperature": 0.2,
     "maxOutputTokens": 512
@@ -519,31 +589,65 @@ POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:ge
 }
 ```
 
-### 6.3 レスポンス処理
-
+**レスポンス処理**:
 - `candidates[0].content.parts[0].text` からテキストを取得
 - 先頭・末尾の空白をトリム
 - `` ``` `` で囲まれていた場合は除去
-- COMMIT_EDITMSG に書き込む際、既存の内容（テンプレートがある場合）をコメント行として末尾に残す
+
+### 7.4 OpenAI Provider
+
+**モデルデフォルト**: `gpt-4o`（`.glerc.json` の `model` で上書き可）
+
+**環境変数**: `GLE_OPENAI_API_KEY`
+
+**エンドポイント**: `https://api.openai.com/v1/chat/completions`
+
+**リクエストボディ**:
+```json
+{
+  "model": "<model>",
+  "messages": [{ "role": "user", "content": "<buildPrompt() の出力>" }],
+  "temperature": 0.2,
+  "max_tokens": 512
+}
+```
+
+**レスポンス処理**:
+- `choices[0].message.content` からテキストを取得
+- 先頭・末尾の空白をトリム
+- `` ``` `` で囲まれていた場合は除去
+
+### 7.5 LiteLLM Provider
+
+**環境変数**: `GLE_LITELLM_API_KEY` / `GLE_LITELLM_BASE_URL` / `GLE_LITELLM_MODEL`
+
+**モデル**: `GLE_LITELLM_MODEL` または `.glerc.json` の `model`（必須。デフォルトなし）
+
+**エンドポイント**: `${GLE_LITELLM_BASE_URL}/chat/completions`（デフォルト: `https://api.litellm.ai/v1/chat/completions`）
+
+OpenAI 互換フォーマットで送受信する。ローカル LLM（Ollama、LM Studio）も `GLE_LITELLM_BASE_URL` で対応。
+
+**validate()**: `GLE_LITELLM_MODEL` または `.glerc.json` の `model` が未設定の場合は false を返す。
 
 ---
 
-## 7. CLI コマンド仕様
+## 8. CLI コマンド仕様
 
-### 7.1 コマンド一覧
+### 8.1 コマンド一覧
 
 | コマンド | 説明 |
 |---|---|
 | `gle install` | セットアップを実行 |
 | `gle uninstall` | セットアップを取り消す |
-| `gle commit [git flags]` | コンテキストと staged diff からメッセージを生成して commit |
+| `gle commit [git flags]` | コンテキストと staged diff からメッセージを生成してコミット |
+| `gle commit --edit [git flags]` | 生成後エディタを起動してメッセージを確認・編集してからコミット |
 | `gle status` | 現在の設定状態を表示 |
 | `gle context` | 現在の `.git/GLE_COMMIT_CONTEXT.md` の内容を表示 |
 | `gle context --clear` | `.git/GLE_COMMIT_CONTEXT.md` を手動でリセット |
 | `gle --version` | バージョン表示 |
 | `gle --help` | ヘルプ表示 |
 
-### 7.2 `gle status` の出力例
+### 8.2 `gle status` の出力例
 
 ```
 gle status
@@ -553,139 +657,110 @@ Claude Code hooks:
   ✓ Stop              登録済み (~/.claude/settings.json)
 
 git hook:
-  ✓ post-commit         (~/.gle/hooks/post-commit)
-  ✓ core.hooksPath      ~/.gle/hooks
+  ✓ post-commit       (~/.gle/hooks/post-commit)
+  ✓ core.hooksPath    ~/.gle/hooks
+
+設定:
+  provider:           gemini  (環境変数)
+  model:              gemini-2.0-flash  (デフォルト)
+  maxDiffChars:       8000  (デフォルト)
+  language:           auto  (デフォルト)
 
 環境変数:
-  ✓ GLE_GEMINI_API_KEY      設定済み
+  ✓ GLE_PROVIDER           gemini
+  ✓ GLE_GEMINI_API_KEY     設定済み
 
 現在のコンテキスト:
   プロジェクト: /home/user/my-project
   ✓ GLE_COMMIT_CONTEXT.md  3件のエントリ
 ```
 
-### 7.3 `gle commit` の動作
-
-`gle commit` は、staged diff と `.git/GLE_COMMIT_CONTEXT.md` をもとに Gemini Flash API でコミットメッセージを生成し、そのメッセージを `git commit -F <tempfile>` に渡す。
-
-全フラグは可能な限り `git commit` に pass-through する。ただし、以下は生成をスキップして通常の `git commit` として扱う:
-
-- `-m` / `--message`
-- `-F` / `--file`
-- `--amend`
-
-存在意義は以下である:
-
-1. 通常の `git commit` を壊さず、AI 生成を明示的な入口に閉じ込める
-2. `git commit -m` を従来通り使える状態に保つ
-3. `gle commit` を選んだときだけ、Claude Code の文脈を使ったメッセージ生成を行う
-
-**通常の `git commit` との関係**:
-
-`git commit` / `git commit -m` は生成対象外。post-commit hook が設定されている場合、コミット成功後に `.git/GLE_COMMIT_CONTEXT.md` をリセットするだけである。
-
 ---
 
-## 8. ファイル・ディレクトリ構成
+## 9. ファイル・ディレクトリ構成
 
-### 8.1 インストール後の生成物
+### 9.1 インストール後の生成物
 
 ```
 ~/.claude/
-└── settings.json          # gle の hook エントリが追記される
+└── settings.json              # gle の hook エントリが追記される
+~/.claude/
+└── settings.json.gle-backup   # 変更前のバックアップ
 
 ~/.gle/
 └── hooks/
-    └── post-commit         # context clear hook (実行権限付き)
+    └── post-commit             # context clear hook（実行権限付き）
 
-<project>/.git/
-└── GLE_COMMIT_CONTEXT.md   # コミットごとにリセットされるコンテキスト
+<project>/
+├── .glerc.json                 # プロジェクト設定（省略可）
+└── .git/
+    └── GLE_COMMIT_CONTEXT.md   # コミットごとにリセットされるコンテキスト
 ```
 
-### 8.2 package.json の主要フィールド
+### 9.2 package.json の主要フィールド
 
 ```json
 {
-  "name": "gle",
-  "version": "0.1.0",
+  "name": "ctx-gleaner",
+  "version": "1.0.0",
   "bin": {
     "gle": "./bin/gle.js"
   },
   "engines": {
     "node": ">=18"
   },
-  "dependencies": {
-    "node-fetch": "^3.0.0"
-  }
+  "dependencies": {}
 }
 ```
 
-依存は最小限に保つ。`node-fetch` のみ（Node.js 18 以上であれば組み込みの `fetch` を使うことも検討）。
+Node.js 18 以上の組み込み `fetch` を使用するため、外部依存なし。
 
 ---
 
-## 9. エッジケースと制約
+## 10. エッジケースと制約
 
-### 9.1 コンテキストなしでのコミット
+### 10.1 コンテキストなしでのコミット
 
 `.git/GLE_COMMIT_CONTEXT.md` が存在しない、または空の場合でも `gle commit` は動作する。diff 情報のみで生成する。精度は下がるが動作は保証する。
 
-### 9.2 複数ターミナルでの並行作業
+### 10.2 複数ターミナルでの並行作業
 
-複数のターミナルで Claude Code セッションを並行して動かしている場合、それぞれの `UserPromptSubmit` / `Stop` hook が同じ `.git/GLE_COMMIT_CONTEXT.md` に追記する。ファイルへの書き込みはアトミックではないため、競合の可能性がある。v0.1 ではこのケースへの対策は行わない（README に記載して注意喚起のみ）。
+複数のターミナルで Claude Code セッションを並行して動かしている場合、各セッションの hook が同じ `.git/GLE_COMMIT_CONTEXT.md` に同時に追記する可能性がある。ファイルへの書き込みはアトミックではないため競合の可能性がある。README に注意として記載する。
 
-### 9.3 git リポジトリ外での Claude Code 使用
+### 10.3 git リポジトリ外での Claude Code 使用
 
 `git rev-parse --git-dir` が失敗した場合、hook は何もせず exit 0。Claude Code の通常動作に影響しない。
 
-### 9.4 `--amend` コミット
+### 10.4 `--amend` コミット
 
 `gle commit --amend` は生成をスキップし、通常の `git commit --amend` にフォールバックする。既存メッセージを上書きしない。
 
-### 9.5 Husky との共存
+### 10.5 Husky との共存
 
-Husky が検出された場合（プロジェクトルートに `.husky/` が存在）、gle は Husky モードで動作する。
+**検出方法**: `git rev-parse --show-toplevel` で得たプロジェクトルートに `.husky/` ディレクトリが存在するか確認する。
 
-**検出方法**: `git rev-parse --show-toplevel` で得たプロジェクトルートに `.husky/` ディレクトリが存在するか確認。
-
-**Husky モードでの `gle uninstall`**:
-
-`.husky/post-commit` 内の gle が追記した行を削除する。ファイルが gle のエントリのみになった場合はファイルごと削除する。`core.hooksPath` は変更しない。
-
-**Husky v8 以前への対応**:
-
-v8 は `package.json` の `husky.hooks` フィールドで設定する形式だった。v8 を検出した場合（`.husky/` が存在しない、かつ `package.json` に `"husky"` キーが存在する）は、通常モードにフォールバックし、以下の警告を表示する:
+Husky v9 未満（`.husky/` が存在しない、かつ `package.json` に `"husky"` キーが存在する）を検出した場合は通常モードにフォールバックし、以下の警告を表示する:
 
 ```
 ⚠ Husky v8 が検出されました。gle は Husky v9+ のみ自動対応します。
   手動で .husky/post-commit を作成するか、Husky を v9 にアップグレードしてください。
-  詳細: https://github.com/gle-dev/gle#husky-v8
+  詳細: https://github.com/ctx-gleaner/gle#husky-v8
 ```
 
-**その他の `core.hooksPath` 競合**:
+Husky 以外のツールが `core.hooksPath` を設定している場合、設定済みのパスに `post-commit` を配置し、`~/.gle/hooks/` への変更は行わない。
 
-Husky 以外のツールが `core.hooksPath` を設定している場合、設定済みのパスに `post-commit` を配置し、`~/.gle/hooks/` への変更は行わない。その旨を表示する。
+**`gle uninstall` の Husky モード**: `.husky/post-commit` 内の gle が追記した行を削除する。gle のエントリのみの場合はファイルごと削除する。`core.hooksPath` は変更しない。
 
-### 9.6 `settings.json` の JSON 破損
+### 10.6 Provider が利用不可な場合
 
-`~/.claude/settings.json` が不正な JSON の場合、パースエラーを表示してインストールを中断する。ユーザーが手動で修正するよう案内する。
-
----
-
-## 10. セキュリティ
-
-- `GLE_GEMINI_API_KEY` はファイルに書き込まない。環境変数のみで参照する。
-- `.git/GLE_COMMIT_CONTEXT.md` はプロジェクトの git 管理対象外（`.git/` 直下）。リポジトリにプッシュされない。
-- `gle commit` は `GLE_GEMINI_API_KEY` が未設定の場合は API コールを行わない。
-- hook スクリプトは stdin の JSON のみを信頼する。環境変数 `PATH` は最小限の操作のみ行う。
+`validate()` が false を返した場合、`gle commit` は API コールを行わず stderr にエラーを出力して通常の `git commit` にフォールバックする。
 
 ---
 
-## 11. 今後の拡張候補（v0.1 対象外）
+## 11. セキュリティ
 
-- Codex CLI 対応（`~/.codex/` ログ or shell preexec）
-- OpenAI API / ローカル LLM のサポート
-- `.glerc` による設定ファイルサポート（使用モデル、プロンプトカスタマイズ、除外パターン等）
-- `gle context --edit` でコミット前にコンテキストを手動編集
-- Conventional Commits の type を対話的に選択するモード
-- VS Code 拡張連携
+- API キーはファイルに書き込まない。環境変数のみで参照する。
+- `.glerc.json` には API キーを記載しない。
+- `.git/GLE_COMMIT_CONTEXT.md` は `.git/` 直下のためリポジトリにプッシュされない。
+- `gle commit` は API キーが未設定の場合は API コールを行わない。
+- hook スクリプトは stdin の JSON のみを信頼する。

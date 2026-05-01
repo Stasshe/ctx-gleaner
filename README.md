@@ -122,8 +122,6 @@ Files that were renamed *and* modified get their actual diff appended separately
 
 - Node.js >= 18
 - [Claude Code](https://claude.ai/code)
-- Gemini API key — free at [Google AI Studio](https://aistudio.google.com/app/apikey)
-
 ---
 
 ## Installation
@@ -146,12 +144,13 @@ gle install
 
 - Registers `UserPromptSubmit` and `Stop` hooks in `~/.claude/settings.json` (backs up the existing file first)
 - Sets up a `post-commit` git hook to clear collected context after successful non-gle commits (see Husky below)
-- Guides you through setting `GLE_GEMINI_API_KEY`
+- Guides you through setting `GLE_PROVIDER` and `GLE_GEMINI_API_KEY`
 
 **Set your API key**
 
 ```bash
 # Add to ~/.zshrc or ~/.bashrc
+export GLE_PROVIDER=gemini
 export GLE_GEMINI_API_KEY="your-api-key"
 ```
 
@@ -236,10 +235,13 @@ gle status
 
 ## Roadmap
 
-- [ ] Codex CLI support
-- [ ] OpenAI API / local LLM support
-- [ ] `.glerc` config file (model selection, prompt customization, exclude patterns)
-- [ ] `gle context --edit` — edit context before committing
+- [ ] v0.2: Multiple LLM provider support
+  - OpenAI (`GLE_PROVIDER=openai`, `GLE_OPENAI_API_KEY`)
+  - LiteLLM (`GLE_PROVIDER=litellm`, `GLE_LITELLM_API_KEY`, `GLE_LITELLM_BASE_URL`)
+- [ ] v0.2: `.glerc` config file for customization
+- [ ] v0.3: Codex CLI support
+- [ ] v0.3: GitHub Copilot integration
+- [ ] v0.3: `gle context --edit` — review/edit context before commit
 
 ---
 
