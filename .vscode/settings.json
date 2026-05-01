@@ -1,0 +1,45 @@
+{
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.formatOnSave": false,
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "always",
+    "source.organizeImports": "never"
+  },
+  "files.autoSave": "onFocusChange",
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/.git": true,
+  },
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/.hg/store/**": true,
+    "**/node_modules/**": true,
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.git": true,
+  },
+  "editor.smoothScrolling": true,
+  "editor.renderWhitespace": "all",
+  "editor.rulers": [80, 120, 160],
+  "editor.formatOnPaste": false,
+  "editor.formatOnType": false,
+  "editor.quickSuggestions": {
+    "strings": true
+  },
+  "editor.suggestSelection": "first",
+  "editor.minimap.enabled": true,
+  "workbench.startupEditor": "none",
+  "workbench.colorTheme": "Dark Modern",
+  "workbench.iconTheme": "vs-seti",
+  "explorer.confirmDelete": false,
+  "editor.bracketPairColorization.enabled": true,
+  "editor.guides.bracketPairs": "active",
+  "editor.cursorBlinking": "smooth",
+  "editor.cursorSmoothCaretAnimation": "on",
+  "workbench.tree.indent": 20,
+  "breadcrumbs.enabled": true,
+  "explorer.compactFolders": false
+}

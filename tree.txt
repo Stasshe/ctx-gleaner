@@ -1,0 +1,36 @@
+.
+├── README.md
+├── SPECIFICATION.md
+├── TODO.md
+├── biome.json
+├── next.config.ts
+├── package-lock.json
+├── package.json
+├── postcss.config.js
+├── public
+│   ├── favicon.png
+│   ├── file.svg
+│   ├── globe.svg
+│   ├── next.svg
+│   └── window.svg
+├── src
+│   ├── app
+│   │   ├── globals.css
+│   │   ├── layout.tsx
+│   │   └── page.tsx
+│   └── contexts
+│       └── ThemeContext.tsx
+├── tailwind.config.ts
+├── tree.sh
+├── tree.txt
+└── tsconfig.json
+
+5 directories, 21 files
+
+src/*.ts, *.tsx の統計:
+合計行数: 242
+合計文字数: 9142
+合計ファイルサイズ(bytes): 9442
+
+開発環境の容量:
+416M	.
