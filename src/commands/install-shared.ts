@@ -99,6 +99,37 @@ export function removeClaudeHook(
   return changed;
 }
 
+export function removeClaudeHookByScriptName(
+  settings: ClaudeSettings,
+  hookName: "UserPromptSubmit" | "Stop",
+  scriptName: string,
+): boolean {
+  const groups = settings.hooks?.[hookName];
+  if (!groups) {
+    return false;
+  }
+
+  let changed = false;
+  const suffix = `/dist/hooks/${scriptName}.js`;
+  const nextGroups = groups
+    .map((group) => {
+      const nextHooks = (group.hooks ?? []).filter((hook) => {
+        const command = typeof hook.command === "string" ? hook.command : "";
+        const matched = hook.type === "command" && command.endsWith(suffix);
+        changed ||= matched;
+        return !matched;
+      });
+      return {
+        ...group,
+        hooks: nextHooks,
+      };
+    })
+    .filter((group) => (group.hooks?.length ?? 0) > 0);
+
+  settings.hooks![hookName] = nextGroups;
+  return changed;
+}
+
 export function formatPostCommitManagedBlock(command: string): string {
   return `${GLE_MANAGED_COMMENT}\n${command}`;
 }
@@ -108,7 +139,7 @@ export function upsertPostCommitScript(
   command: string,
 ): string {
   const managedBlock = formatPostCommitManagedBlock(command);
-  const normalized = existingContent.trimEnd();
+  const normalized = removeAnyManagedPostCommitBlock(existingContent).trimEnd();
 
   if (!normalized) {
     return `#!/usr/bin/env sh\n${managedBlock}\n`;
@@ -119,6 +150,25 @@ export function upsertPostCommitScript(
   }
 
   return `${normalized}\n${managedBlock}\n`;
+}
+
+export function removeAnyManagedPostCommitBlock(content: string): string {
+  const lines = content.split("\n");
+  const filtered: string[] = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (line === undefined) {
+      continue;
+    }
+    if (line === GLE_MANAGED_COMMENT) {
+      index += 1;
+      continue;
+    }
+    filtered.push(line);
+  }
+
+  return filtered.join("\n").trimEnd();
 }
 
 export function removeManagedPostCommitBlock(

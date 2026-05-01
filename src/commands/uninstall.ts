@@ -13,7 +13,9 @@ import {
 } from "../paths.js";
 import {
   type ClaudeSettings,
+  removeClaudeHookByScriptName,
   removeClaudeHook,
+  removeAnyManagedPostCommitBlock,
   removeManagedPostCommitBlock,
 } from "./install-shared.js";
 
@@ -31,6 +33,8 @@ async function uninstallClaudeHooks(): Promise<void> {
     `node ${getDistHookPath("user-prompt-submit")}`,
   );
   removeClaudeHook(settings, "Stop", `node ${getDistHookPath("stop")}`);
+  removeClaudeHookByScriptName(settings, "UserPromptSubmit", "user-prompt-submit");
+  removeClaudeHookByScriptName(settings, "Stop", "stop");
 
   await writeFile(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
 }
@@ -41,7 +45,7 @@ async function cleanupPostCommit(path: string): Promise<void> {
     return;
   }
   const next = removeManagedPostCommitBlock(
-    existing,
+    removeAnyManagedPostCommitBlock(existing),
     `node ${getDistHookPath("post-commit")}`,
   );
   if (!next || next === "#!/usr/bin/env sh") {

@@ -2,6 +2,8 @@ import { describe, expect, test } from "vitest";
 import {
   hasClaudeHook,
   mergeClaudeHook,
+  removeClaudeHookByScriptName,
+  removeAnyManagedPostCommitBlock,
   removeClaudeHook,
   removeManagedPostCommitBlock,
   upsertPostCommitScript,
@@ -18,6 +20,24 @@ describe("install shared helpers", () => {
     expect(hasClaudeHook(settings, "UserPromptSubmit", "node /tmp/a.js")).toBe(false);
   });
 
+  test("removes old Claude hook entries by script name before reinstall", () => {
+    const settings: ClaudeSettings = {};
+    mergeClaudeHook(
+      settings,
+      "UserPromptSubmit",
+      "node /home/user/dev/ctx-gleaner/dist/hooks/user-prompt-submit.js",
+    );
+
+    expect(
+      removeClaudeHookByScriptName(
+        settings,
+        "UserPromptSubmit",
+        "user-prompt-submit",
+      ),
+    ).toBe(true);
+    expect(settings.hooks?.UserPromptSubmit).toEqual([]);
+  });
+
   test("appends managed post-commit block without clobbering existing script", () => {
     const existing = "#!/usr/bin/env sh\necho before\n";
     const command = "node /tmp/post-commit.js";
@@ -28,11 +48,29 @@ describe("install shared helpers", () => {
     expect(upsertPostCommitScript(next, command)).toBe(next);
   });
 
+  test("replaces old managed post-commit command on reinstall", () => {
+    const existing =
+      "#!/usr/bin/env sh\n# gle: clear collected context after successful commit\nnode /old/dist/hooks/post-commit.js\n";
+    const next = upsertPostCommitScript(existing, "node /new/dist/hooks/post-commit.js");
+
+    expect(next).toContain("node /new/dist/hooks/post-commit.js");
+    expect(next).not.toContain("node /old/dist/hooks/post-commit.js");
+  });
+
   test("removes only the managed post-commit block", () => {
     const command = "node /tmp/post-commit.js";
     const content = `#!/usr/bin/env sh\necho before\n# gle: clear collected context after successful commit\n${command}\necho after\n`;
     expect(removeManagedPostCommitBlock(content, command)).toBe(
       "#!/usr/bin/env sh\necho before\necho after",
+    );
+  });
+
+  test("removes any managed post-commit block regardless of command path", () => {
+    const content =
+      "#!/usr/bin/env sh\n# gle: clear collected context after successful commit\nnode /old/dist/hooks/post-commit.js\necho after\n";
+
+    expect(removeAnyManagedPostCommitBlock(content)).toBe(
+      "#!/usr/bin/env sh\necho after",
     );
   });
 });

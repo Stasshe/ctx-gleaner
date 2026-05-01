@@ -11,6 +11,7 @@ import {
 import {
   type ClaudeSettings,
   mergeClaudeHook,
+  removeClaudeHookByScriptName,
   upsertPostCommitScript,
 } from "./install-shared.js";
 
@@ -63,6 +64,8 @@ async function installClaudeHooks(): Promise<void> {
   const userPromptCommand = `node ${getDistHookPath("user-prompt-submit")}`;
   const stopCommand = `node ${getDistHookPath("stop")}`;
 
+  removeClaudeHookByScriptName(settings, "UserPromptSubmit", "user-prompt-submit");
+  removeClaudeHookByScriptName(settings, "Stop", "stop");
   mergeClaudeHook(settings, "UserPromptSubmit", userPromptCommand);
   mergeClaudeHook(settings, "Stop", stopCommand, true);
 
