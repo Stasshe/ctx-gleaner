@@ -15,11 +15,11 @@ export interface ResolvedConfig {
   maxDiffChars: number;
   language: string;
   sources: {
-    provider: "env" | "file" | "default";
-    model: "env" | "file" | "default" | "unset";
-    prompt: "file" | "default";
-    maxDiffChars: "file" | "default";
-    language: "file" | "default";
+    provider: "env" | "global" | "default";
+    model: "env" | "global" | "default" | "unset";
+    prompt: "global" | "default";
+    maxDiffChars: "global" | "default";
+    language: "global" | "default";
   };
 }
 

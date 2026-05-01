@@ -1,249 +1,242 @@
 # ctx-gleaner
 
-> Context-aware commit message generator for Claude Code.
+Claude Code の作業コンテキストを収集して、`gle commit` 時にコミットメッセージを生成する CLI です。
 
----
+## What It Does
 
-## The Problem
+- `UserPromptSubmit` hook でユーザープロンプトを収集
+- `Stop` hook で直近のアシスタント要約を収集
+- 収集先は各 repo の `.git/GLE_COMMIT_CONTEXT.md`
+- `gle commit` で staged diff と context をまとめて LLM に送り、生成メッセージで `git commit`
+- commit 成功時だけ context をリセット
+- 通常の `git commit` は上書きしない
 
-AI coding assistants have changed how we write code. They haven't changed how we document it.
+## Current Scope
 
-When you use Claude Code, the *why* behind every change lives in your prompts — "replace JWT with session auth because the mobile client can't handle token refresh" — but that context evaporates the moment the session ends. By the time you run `git commit`, all that's left is a diff.
+v0.3 時点の実装範囲:
 
-A diff tells you **what** changed. It cannot tell you **why**.
+- Claude Code hooks
+- `gle install`
+- `gle uninstall`
+- `gle status`
+- `gle context`
+- `gle commit`
+- Provider: `gemini`, `openai`, `litellm`
+- lockfile 除外
+- rename 検出
+- diff 文字数制限
 
-Existing commit message generators are all built around the same assumption: that `git diff` is enough. It isn't. They produce messages like:
+未確認または未対応:
 
-```
-Update auth.ts
-```
-
-or, if you're lucky:
-
-```
-Refactor authentication middleware
-```
-
-Neither tells the next developer — or future you — why this change happened, what tradeoff was made, or what was intentionally left behind.
-
-The real context is in your Claude Code session. The problem is getting it out.
-
----
-
-## Why This Is Hard
-
-The obvious solution is to pipe Claude Code's output somewhere. It doesn't work.
-
-Claude Code runs in interactive mode, writing directly to the tty. There's nothing to intercept. Scraping `~/.claude/` JSONL logs after the fact requires timestamp-based heuristics to guess which session corresponds to which commit — and those heuristics break silently in any multi-terminal workflow.
-
-Shell-level wrappers (`preexec` hooks in zsh) can intercept the command line before Claude Code launches, but they require modifying the user's shell config — a high-trust ask for an OSS tool, and it breaks for anyone not on zsh.
-
-ctx-gleaner solves this using **Claude Code's official Hooks API** — the only mechanism that fires deterministically inside the agent loop, with no shell modification required.
-
----
-
-## How It Works
-
-### Step 1 — Collect context inside the Claude Code session
-
-ctx-gleaner registers two hooks via `~/.claude/settings.json`:
-
-**`UserPromptSubmit`** fires every time you send a prompt. ctx-gleaner writes the prompt text to `.git/GLE_COMMIT_CONTEXT.md`. This is your intent — the *why*.
-
-**`Stop`** fires every time Claude finishes a response. ctx-gleaner reads the session transcript (`transcript_path` from the hook payload) and appends the tail of the last assistant message. This is the *what actually happened* — a complement to your intent when the implementation diverged from the prompt.
-
-Both hooks write to `.git/GLE_COMMIT_CONTEXT.md`, which lives inside `.git/` and is therefore never tracked by git. No `.gitignore` entry needed.
-
-The context file looks like this after a session:
-
-```markdown
-<!-- gle context -->
-
-## 2026-05-01T10:23:11+09:00
-
-### prompt
-Replace JWT auth with session-based auth, fix the related tests
-
-### stop
-Rewrote the auth middleware to use express-session. Removed jsonwebtoken
-dependency. Updated 7 tests, all passing.
-
----
-
-## 2026-05-01T11:05:33+09:00
-
-### prompt
-Remove the jwt package from package.json, it's no longer needed
-```
-
-### Step 2 — Commit
-
-Use `gle commit` when you want an AI-generated commit message. ctx-gleaner generates the message from your accumulated context and diff, then hands off to `git commit`.
-
-Normal `git commit` and `git commit -m` keep their original Git behavior. They do not trigger message generation.
-
-```bash
-gle commit                   # generate a message, then commit
-gle commit --no-edit         # accept the generated message without opening editor
-gle commit -a                # stage all tracked files, then generate and commit
-gle commit -m "message"      # no generation; behaves like git commit -m
-gle commit --amend           # no generation; behaves like git commit --amend
-```
-
-After the commit completes, `.git/GLE_COMMIT_CONTEXT.md` is reset automatically.
-
----
-
-## Token and Cost Design
-
-This is where most AI commit tools cut corners. ctx-gleaner doesn't.
-
-**Rename detection.** `git mv` produces diffs that look like a full file deletion plus a full file addition — even for a one-character rename. For large refactors involving directory restructuring, this can balloon a diff to tens of thousands of tokens. ctx-gleaner runs `git diff --cached --find-renames=50% --diff-filter=R` before building the prompt. Renamed files are replaced with a compact summary:
-
-```
-[Renames detected: 5]
-- src/old/auth.ts → src/new/auth.ts (similarity: 95%)
-- src/old/user.ts → src/new/user.ts (similarity: 100%)
-```
-
-Files that were renamed *and* modified get their actual diff appended separately — so content changes are preserved, only the noise is removed.
-
-**Lock file exclusion.** `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `Cargo.lock`, and `Gemfile.lock` are excluded from the diff automatically. These files routinely account for the majority of tokens in a diff while contributing zero signal to a commit message.
-
-**Diff truncation.** The diff body is capped at 8,000 characters. If truncated, the prompt notes this explicitly so the model doesn't hallucinate about code it hasn't seen.
-
-**Model choice.** ctx-gleaner uses `gemini-2.0-flash`. It has a large context window (useful for big diffs), low latency (you're waiting on a commit), and a free tier generous enough that typical commit message generation costs effectively nothing. For structured, constrained generation tasks like this, Flash performs on par with larger models at a fraction of the cost.
-
-**`Stop` hook is async.** The transcript read and append runs with `async: true`, so it never blocks Claude Code's response cycle. Zero added latency to your Claude Code workflow.
-
----
+- Claude Code 実セッションでの完全な E2E 確認
+- Codex CLI / GitHub Copilot integration
+- `gle context --edit`
 
 ## Requirements
 
-- Node.js >= 18
-- [Claude Code](https://claude.ai/code)
----
+- Node.js `>=18`
+- Git
+- Claude Code
+- いずれかの API キー
 
-## Installation
+## Install
 
-**Per-project (recommended)**
+### Per-project
 
 ```bash
 npm install --save-dev ctx-gleaner
 npx gle install
 ```
 
-**Global**
+### Global
 
 ```bash
 npm install -g ctx-gleaner
 gle install
 ```
 
-`gle install` does three things:
+`gle install` は次を行います。
 
-- Registers `UserPromptSubmit` and `Stop` hooks in `~/.claude/settings.json` (backs up the existing file first)
-- Sets up a `post-commit` git hook to clear collected context after successful non-gle commits (see Husky below)
-- Guides you through setting `GLE_PROVIDER` and `GLE_GEMINI_API_KEY`
+- `~/.claude/settings.json` に `UserPromptSubmit` / `Stop` hook をマージ
+- 変更前の `settings.json` を `~/.claude/settings.json.gle-backup` に保存
+- `post-commit` hook を設定
+  - `.husky/` があれば `.husky/post-commit`
+  - 既存 `core.hooksPath` があればその配下
+  - なければ `~/.gle/hooks` を作成して `core.hooksPath` を設定
 
-**Set your API key**
+## Configuration
+
+優先順位:
+
+1. 環境変数
+2. `~/.gle/glerc.json`
+3. デフォルト値
+
+### Environment Variables
 
 ```bash
-# Add to ~/.zshrc or ~/.bashrc
 export GLE_PROVIDER=gemini
-export GLE_GEMINI_API_KEY="your-api-key"
+export GLE_GEMINI_API_KEY=...
 ```
 
-> If you manage your dotfiles in a public repository, make sure `GLE_GEMINI_API_KEY` is not committed. Add the relevant file to `.gitignore` or use a secrets manager.
+利用可能な変数:
 
-### Husky
+- `GLE_PROVIDER`
+- `GLE_GEMINI_API_KEY`
+- `GLE_OPENAI_API_KEY`
+- `GLE_LITELLM_API_KEY`
+- `GLE_LITELLM_BASE_URL`
+- `GLE_LITELLM_MODEL`
 
-ctx-gleaner auto-detects Husky v9+. If `.husky/` exists in your project root, `gle install` writes to `.husky/post-commit` instead of touching `core.hooksPath`. If the file already exists, ctx-gleaner appends to it — your existing hooks are untouched.
+### `~/.gle/glerc.json`
 
-Husky v8 (configured via `package.json`) is not auto-detected. See [Husky v8 manual setup](#husky-v8).
+ユーザー単位のグローバル設定です。project `.glerc.json` は使いません。
 
----
+```json
+{
+  "provider": "gemini",
+  "model": "gemini-2.5-flash",
+  "prompt": "custom prompt",
+  "maxDiffChars": 8000,
+  "language": "auto"
+}
+```
+
+### `~/.gle/prompt.md`
+
+prompt を Markdown で調整したい場合はここに置きます。`~/.gle/glerc.json` の `prompt` があればそちらを優先します。
+
+```md
+あなたは git コミットメッセージの専門家です。
+以下のルールに従ってコミットメッセージのみを返してください。
+```
 
 ## Usage
 
-After install, use `gle commit` when you want ctx-gleaner to generate the commit message.
+### Commit Message Generation
 
 ```bash
-# Work with Claude Code as usual
-claude
-
-# Stage your changes
 git add .
-
-# Commit — ctx-gleaner generates the message
 gle commit
 ```
 
-**All standard git commit flags are supported:**
+`gle commit` の挙動:
+
+- デフォルト: 生成してそのまま `git commit`
+- `--edit`: 生成後に editor を開く
+- `-m`, `--message`, `-F`, `--file`, `--amend`: 生成をスキップして plain `git commit`
+- provider 未設定時: plain `git commit` にフォールバック
+
+### Context
 
 ```bash
-gle commit -a                # stage all tracked changes, then generate and commit
-gle commit --no-edit         # accept the generated message without opening editor
-gle commit -v                # pass -v through to git commit
-gle commit -m "message"      # no generation; behaves like git commit -m
-gle commit --amend           # amend last commit; generation skipped
+gle context
+gle context --clear
 ```
 
-**Inspect or clear context**
-
-```bash
-gle context          # show the current context file
-gle context --clear  # reset manually (e.g. after discarding work in progress)
-```
-
-**Check setup**
+### Status
 
 ```bash
 gle status
 ```
 
+出力内容:
+
+- Claude hooks 登録状態
+- `post-commit` hook 状態
+- 解決済み provider / model / language / maxDiffChars
+- `~/.gle/glerc.json` / `~/.gle/prompt.md` の有無
+- `GLE_*` 環境変数の有無
+- 現在の context 件数
+
+## Context File
+
+保存先:
+
+```text
+<repo>/.git/GLE_COMMIT_CONTEXT.md
+```
+
+例:
+
+```md
+<!-- gle context -->
+
+## 2026-05-01T10:23:11+09:00
+
+### prompt
+JWTをセッション認証に切り替えて
+
+### stop
+認証ミドルウェアをセッションベースに書き換え、関連テストを更新した
+
 ---
+```
+
+## Diff Handling
+
+- `git diff --cached --find-renames`
+- lockfile を除外
+  - `*.lock`
+  - `package-lock.json`
+  - `yarn.lock`
+  - `pnpm-lock.yaml`
+  - `Cargo.lock`
+  - `Gemfile.lock`
+- rename が 3 件以上なら rename 要約に圧縮
+- diff 本文は `maxDiffChars` で切り詰め
+
+## Providers
+
+### Gemini
+
+- default model: `gemini-2.5-flash`
+- env: `GLE_GEMINI_API_KEY`
+
+### OpenAI
+
+- default model: `gpt-4o`
+- env: `GLE_OPENAI_API_KEY`
+
+### LiteLLM
+
+- model は `GLE_LITELLM_MODEL` または `~/.gle/glerc.json` で必須
+- env: `GLE_LITELLM_API_KEY`
+- base URL default: `https://api.litellm.ai/v1`
+
+## Limitations
+
+- 複数 Claude Code セッションが同じ repo に同時書き込みすると context が混ざる
+- `Stop` hook は transcript の最後の assistant message に依存する
+- 通常の `git commit` は生成しない
+- merge 中は生成をスキップする
 
 ## Commands
 
 | Command | Description |
 |---|---|
-| `gle install` | Run setup |
-| `gle uninstall` | Remove all ctx-gleaner configuration |
-| `gle commit [git flags]` | Generate a message from context + staged diff, then commit |
-| `gle status` | Show current setup state |
-| `gle context` | Print the current context file |
-| `gle context --clear` | Reset context manually |
-| `gle --version` | Print version |
-| `gle --help` | Print help |
+| `gle install` | hook と post-commit を設定 |
+| `gle uninstall` | gle の設定を削除 |
+| `gle commit [git flags]` | context + diff から message 生成 |
+| `gle status` | 設定状態を表示 |
+| `gle context` | context 内容を表示 |
+| `gle context --clear` | context をリセット |
+| `gle --version` | version 表示 |
+| `gle --help` | help 表示 |
 
----
+## Development
 
-## Limitations
+```bash
+npm install
+npm run build
+npm test
+```
 
-**Parallel Claude Code sessions.** If you run multiple Claude Code instances in separate terminals against the same repo, their hooks write to the same context file. Entries may interleave. v0.1 does not handle this — context from both sessions will be included in the next commit message.
+配布確認:
 
-**Context-free commits.** If you run `gle commit` without having used Claude Code (direct edits, etc.), the context file will be empty. ctx-gleaner falls back to diff-only generation. The message will be less informative about intent.
-
-**Normal Git commits.** `git commit` and `git commit -m` never generate messages. If the optional post-commit hook is installed, they only clear `.git/GLE_COMMIT_CONTEXT.md` after a successful commit so stale context does not leak into a later `gle commit`.
-
-**Merge commits.** `gle commit` during a merge skips generation. Your editor opens normally.
-
-**Claude Code only.** v0.1 supports Claude Code hooks only. Codex CLI and GitHub Copilot are on the roadmap.
-
----
-
-## Roadmap
-
-- [ ] v0.2: Multiple LLM provider support
-  - OpenAI (`GLE_PROVIDER=openai`, `GLE_OPENAI_API_KEY`)
-  - LiteLLM (`GLE_PROVIDER=litellm`, `GLE_LITELLM_API_KEY`, `GLE_LITELLM_BASE_URL`)
-- [ ] v0.2: `.glerc` config file for customization
-- [ ] v0.3: Codex CLI support
-- [ ] v0.3: GitHub Copilot integration
-- [ ] v0.3: `gle context --edit` — review/edit context before commit
-
----
+```bash
+npm pack
+```
 
 ## License
 

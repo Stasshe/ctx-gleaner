@@ -7,6 +7,8 @@ import {
   getClaudeSettingsPath,
   getDefaultHooksDir,
   getDistHookPath,
+  getGlobalConfigPath,
+  getGlobalPromptPath,
 } from "../paths.js";
 import { type ClaudeSettings, hasClaudeHook } from "./install-shared.js";
 
@@ -28,6 +30,8 @@ export async function statusCommand(cwd: string): Promise<number> {
   const hookPath = configuredHooksPath ?? getDefaultHooksDir();
   const postCommitPath = join(hookPath, "post-commit");
   const postCommitContent = await readFile(postCommitPath, "utf8").catch(() => "");
+  const globalConfigPath = getGlobalConfigPath();
+  const globalPromptPath = getGlobalPromptPath();
   const contextPath = await getContextFilePath(cwd).catch(() => null);
   const contextContent = contextPath ? await readContextFile(contextPath) : "";
   const contextEntries = contextContent ? countContextEntries(contextContent) : 0;
@@ -57,6 +61,9 @@ export async function statusCommand(cwd: string): Promise<number> {
     `  maxDiffChars:       ${config.maxDiffChars}  (${config.sources.maxDiffChars})`,
   );
   console.log(`  language:           ${config.language}  (${config.sources.language})`);
+  console.log(`  prompt:             ${config.sources.prompt}`);
+  console.log(`  global config:      ${await exists(globalConfigPath) ? globalConfigPath : "(none)"}`);
+  console.log(`  global prompt:      ${await exists(globalPromptPath) ? globalPromptPath : "(none)"}`);
   console.log("");
   console.log("環境変数:");
   for (const name of [

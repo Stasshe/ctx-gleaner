@@ -4,6 +4,10 @@ import { homedir } from "node:os";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 
+function getUserHomeDir(): string {
+  return process.env.GLE_HOME ?? process.env.HOME ?? homedir();
+}
+
 export function getPackageRoot(): string {
   return resolve(currentDir, "..");
 }
@@ -13,13 +17,25 @@ export function getDistHookPath(name: string): string {
 }
 
 export function getClaudeSettingsPath(): string {
-  return join(homedir(), ".claude", "settings.json");
+  return join(getUserHomeDir(), ".claude", "settings.json");
 }
 
 export function getClaudeBackupPath(): string {
-  return join(homedir(), ".claude", "settings.json.gle-backup");
+  return join(getUserHomeDir(), ".claude", "settings.json.gle-backup");
 }
 
 export function getDefaultHooksDir(): string {
-  return join(homedir(), ".gle", "hooks");
+  return join(getUserHomeDir(), ".gle", "hooks");
+}
+
+export function getGleRootDir(): string {
+  return join(getUserHomeDir(), ".gle");
+}
+
+export function getGlobalConfigPath(): string {
+  return join(getGleRootDir(), "glerc.json");
+}
+
+export function getGlobalPromptPath(): string {
+  return join(getGleRootDir(), "prompt.md");
 }

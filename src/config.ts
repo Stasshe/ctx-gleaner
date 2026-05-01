@@ -1,5 +1,4 @@
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import {
   DEFAULT_LANGUAGE,
   DEFAULT_MAX_DIFF_CHARS,
@@ -7,12 +6,11 @@ import {
   DEFAULT_PROVIDER,
 } from "./constants.js";
 import type { GleConfigFile, ProviderName, ResolvedConfig } from "./types.js";
-import { getGitRoot } from "./git.js";
+import { getGlobalConfigPath, getGlobalPromptPath } from "./paths.js";
 
-async function readConfigFile(cwd: string): Promise<GleConfigFile> {
+async function readGlobalConfigFile(): Promise<GleConfigFile> {
   try {
-    const root = await getGitRoot(cwd);
-    const raw = await readFile(join(root, ".glerc.json"), "utf8");
+    const raw = await readFile(getGlobalConfigPath(), "utf8");
     const parsed = JSON.parse(raw) as GleConfigFile;
     return parsed && typeof parsed === "object" ? parsed : {};
   } catch {
@@ -20,29 +18,40 @@ async function readConfigFile(cwd: string): Promise<GleConfigFile> {
   }
 }
 
+async function readGlobalPromptFile(): Promise<string | undefined> {
+  try {
+    const prompt = await readFile(getGlobalPromptPath(), "utf8");
+    return prompt.trim() ? prompt : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function resolveProvider(
   envProvider: string | undefined,
-  fileProvider: string | undefined,
+  globalProvider: string | undefined,
 ): { value: ProviderName; source: ResolvedConfig["sources"]["provider"] } {
-  const candidate = (envProvider ?? fileProvider ?? DEFAULT_PROVIDER).toLowerCase();
+  const candidate = (envProvider ?? globalProvider ?? DEFAULT_PROVIDER).toLowerCase();
   if (candidate === "openai" || candidate === "litellm" || candidate === "gemini") {
     if (envProvider) {
       return { value: candidate, source: "env" };
     }
-    if (fileProvider) {
-      return { value: candidate, source: "file" };
+    if (globalProvider) {
+      return { value: candidate, source: "global" };
     }
   }
   return { value: DEFAULT_PROVIDER, source: "default" };
 }
 
 export async function resolveConfig(cwd: string): Promise<ResolvedConfig> {
-  const fileConfig = await readConfigFile(cwd);
-  const provider = resolveProvider(process.env.GLE_PROVIDER, fileConfig.provider);
+  void cwd;
+  const globalConfig = await readGlobalConfigFile();
+  const globalPrompt = await readGlobalPromptFile();
+  const provider = resolveProvider(process.env.GLE_PROVIDER, globalConfig.provider);
 
   const envModel =
     provider.value === "litellm" ? process.env.GLE_LITELLM_MODEL : undefined;
-  const fileModel = fileConfig.model;
+  const globalModel = globalConfig.model;
 
   let model: string | undefined;
   let modelSource: ResolvedConfig["sources"]["model"] = "unset";
@@ -50,9 +59,9 @@ export async function resolveConfig(cwd: string): Promise<ResolvedConfig> {
   if (envModel) {
     model = envModel;
     modelSource = "env";
-  } else if (fileModel) {
-    model = fileModel;
-    modelSource = "file";
+  } else if (globalModel) {
+    model = globalModel;
+    modelSource = "global";
   } else if (provider.value in DEFAULT_MODELS) {
     model = DEFAULT_MODELS[provider.value as keyof typeof DEFAULT_MODELS];
     modelSource = "default";
@@ -61,26 +70,26 @@ export async function resolveConfig(cwd: string): Promise<ResolvedConfig> {
   return {
     provider: provider.value,
     model,
-    prompt: fileConfig.prompt,
+    prompt: globalConfig.prompt?.trim() ? globalConfig.prompt : globalPrompt,
     maxDiffChars:
-      typeof fileConfig.maxDiffChars === "number" && fileConfig.maxDiffChars > 0
-        ? fileConfig.maxDiffChars
+      typeof globalConfig.maxDiffChars === "number" && globalConfig.maxDiffChars > 0
+        ? globalConfig.maxDiffChars
         : DEFAULT_MAX_DIFF_CHARS,
     language:
-      typeof fileConfig.language === "string" && fileConfig.language.trim()
-        ? fileConfig.language.trim()
+      typeof globalConfig.language === "string" && globalConfig.language.trim()
+        ? globalConfig.language.trim()
         : DEFAULT_LANGUAGE,
     sources: {
       provider: provider.source,
       model: modelSource,
-      prompt: fileConfig.prompt ? "file" : "default",
+      prompt: globalConfig.prompt?.trim() || globalPrompt ? "global" : "default",
       maxDiffChars:
-        typeof fileConfig.maxDiffChars === "number" && fileConfig.maxDiffChars > 0
-          ? "file"
+        typeof globalConfig.maxDiffChars === "number" && globalConfig.maxDiffChars > 0
+          ? "global"
           : "default",
       language:
-        typeof fileConfig.language === "string" && fileConfig.language.trim()
-          ? "file"
+        typeof globalConfig.language === "string" && globalConfig.language.trim()
+          ? "global"
           : "default",
     },
   };
