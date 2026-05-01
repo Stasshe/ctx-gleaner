@@ -1,6 +1,6 @@
 import { access } from "node:fs/promises";
 import { constants as fsConstants } from "node:fs";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { CONTEXT_FILE_NAME, LOCKFILE_PATTERNS } from "./constants.js";
@@ -60,9 +60,14 @@ export async function getGitDir(cwd: string): Promise<string> {
   return resolve(cwd, stdout.trim());
 }
 
+export async function getProjectGleDir(cwd: string): Promise<string> {
+  const gitRoot = await getGitRoot(cwd);
+  return join(gitRoot, ".gle");
+}
+
 export async function getContextFilePath(cwd: string): Promise<string> {
-  const gitDir = await getGitDir(cwd);
-  return resolve(gitDir, CONTEXT_FILE_NAME);
+  const gleDir = await getProjectGleDir(cwd);
+  return join(gleDir, CONTEXT_FILE_NAME);
 }
 
 export async function hasMergeInProgress(cwd: string): Promise<boolean> {
@@ -73,6 +78,26 @@ export async function hasMergeInProgress(cwd: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export async function hasUntrackedFiles(cwd: string): Promise<boolean> {
+  const result = await runGitRaw(
+    ["ls-files", "--others", "--exclude-standard"],
+    cwd,
+  );
+  return result.code === 0 && result.stdout.trim().length > 0;
+}
+
+export async function getUntrackedFilesList(cwd: string): Promise<string> {
+  const result = await runGitRaw(
+    ["ls-files", "--others", "--exclude-standard"],
+    cwd,
+  );
+  return result.code === 0 ? result.stdout.trim() : "";
+}
+
+export async function stageAll(cwd: string): Promise<void> {
+  await runGit(["add", "-A"], cwd);
 }
 
 export async function getCoreHooksPath(): Promise<string | null> {
@@ -207,6 +232,6 @@ export async function getUnstagedDiffBody(cwd: string): Promise<string> {
 }
 
 export async function getGeneratedMsgPath(cwd: string): Promise<string> {
-  const gitDir = await getGitDir(cwd);
-  return resolve(gitDir, "GLE_GENERATED_MSG.md");
+  const gleDir = await getProjectGleDir(cwd);
+  return join(gleDir, "GLE_GENERATED_MSG.md");
 }

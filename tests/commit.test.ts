@@ -1,6 +1,6 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { afterEach, describe, expect, test, vi } from "vitest";
@@ -33,6 +33,7 @@ describe("commit command", () => {
     const repoDir = await initRepo();
     try {
       const contextPath = await getContextFilePath(repoDir);
+      await mkdir(dirname(contextPath), { recursive: true });
       await writeFile(
         contextPath,
         "<!-- gle context -->\n\n## 2026-05-01T00:00:00.000Z\n\n### prompt\ncommit test\n",

@@ -1,5 +1,5 @@
 import { mkdir, readFile, writeFile, appendFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 import { CONTEXT_HEADER } from "./constants.js";
 
 function nowIso(): string {
@@ -15,8 +15,27 @@ function nowIso(): string {
   );
 }
 
+async function ensureGitignoreEntry(gitRoot: string): Promise<void> {
+  const gitignorePath = join(gitRoot, ".gitignore");
+  let content = "";
+  try {
+    content = await readFile(gitignorePath, "utf8");
+  } catch {
+    // file doesn't exist yet
+  }
+  const lines = content.split("\n");
+  if (lines.some((line) => line.trim() === ".gle/")) {
+    return;
+  }
+  const entry = content === "" || content.endsWith("\n") ? ".gle/\n" : "\n.gle/\n";
+  await appendFile(gitignorePath, entry, "utf8");
+}
+
 export async function ensureContextFile(path: string): Promise<void> {
-  await mkdir(dirname(path), { recursive: true });
+  const gleDir = dirname(path);
+  const gitRoot = dirname(gleDir);
+  await mkdir(gleDir, { recursive: true });
+  await ensureGitignoreEntry(gitRoot);
   try {
     await readFile(path, "utf8");
   } catch {

@@ -14,6 +14,8 @@ import {
   hasMergeInProgress,
   hasStagedChanges,
   hasUnstagedChanges,
+  hasUntrackedFiles,
+  stageAll,
   getUnstagedDiffStat,
   getUnstagedDiffBody,
 } from "../git.js";
@@ -102,9 +104,12 @@ export async function commitCommand(cwd: string, rawArgs: string[]): Promise<num
   const contextPath = await getContextFilePath(cwd);
   const contextMd = await readContextFile(contextPath);
   const staged = await hasStagedChanges(cwd);
-  const useUnstaged = !staged && await hasUnstagedChanges(cwd);
+  const hasModified = !staged && (await hasUnstagedChanges(cwd));
+  const hasNew = !staged && (await hasUntrackedFiles(cwd));
+  const useUnstaged = hasModified && !hasNew;
+  const useAutoStage = !staged && hasNew;
 
-  if (!staged && !useUnstaged && isContextEffectivelyEmpty(contextMd)) {
+  if (!staged && !useUnstaged && !useAutoStage && isContextEffectivelyEmpty(contextMd)) {
     return runGitCommit(cwd, rawArgs);
   }
 
@@ -118,10 +123,16 @@ export async function commitCommand(cwd: string, rawArgs: string[]): Promise<num
 
   try {
     await getGitRoot(cwd);
+
+    if (useAutoStage) {
+      await stageAll(cwd);
+    }
+
+    const useCached = staged || useAutoStage;
     const diffStat = useUnstaged
       ? await getUnstagedDiffStat(cwd)
       : await getCachedDiffStat(cwd);
-    const renameEntries = useUnstaged ? [] : await getRenameEntries(cwd);
+    const renameEntries = useCached ? await getRenameEntries(cwd) : [];
     const renamedModifiedPaths = renameEntries
       .filter((entry) => entry.modified)
       .map((entry) => entry.to);

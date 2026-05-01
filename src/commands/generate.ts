@@ -10,6 +10,8 @@ import {
   getRenameEntries,
   hasStagedChanges,
   hasUnstagedChanges,
+  hasUntrackedFiles,
+  stageAll,
   getUnstagedDiffStat,
   getUnstagedDiffBody,
 } from "../git.js";
@@ -34,9 +36,12 @@ export async function generateCommand(cwd: string): Promise<number> {
   const contextPath = await getContextFilePath(cwd);
   const contextMd = await readContextFile(contextPath);
   const staged = await hasStagedChanges(cwd);
-  const useUnstaged = !staged && (await hasUnstagedChanges(cwd));
+  const hasModified = !staged && (await hasUnstagedChanges(cwd));
+  const hasNew = !staged && (await hasUntrackedFiles(cwd));
+  const useUnstaged = hasModified && !hasNew;
+  const useAutoStage = !staged && hasNew;
 
-  if (!staged && !useUnstaged && isContextEffectivelyEmpty(contextMd)) {
+  if (!staged && !useUnstaged && !useAutoStage && isContextEffectivelyEmpty(contextMd)) {
     printError("gle: no staged or unstaged changes and no context. Nothing to generate.");
     return 1;
   }
@@ -49,10 +54,15 @@ export async function generateCommand(cwd: string): Promise<number> {
     return 1;
   }
 
+  if (useAutoStage) {
+    await stageAll(cwd);
+  }
+
+  const useCached = staged || useAutoStage;
   const diffStat = useUnstaged
     ? await getUnstagedDiffStat(cwd)
     : await getCachedDiffStat(cwd);
-  const renameEntries = useUnstaged ? [] : await getRenameEntries(cwd);
+  const renameEntries = useCached ? await getRenameEntries(cwd) : [];
   const renamedModifiedPaths = renameEntries
     .filter((entry) => entry.modified)
     .map((entry) => entry.to);
