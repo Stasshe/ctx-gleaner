@@ -146,16 +146,16 @@ gle install
 
 - Registers `UserPromptSubmit` and `Stop` hooks in `~/.claude/settings.json` (backs up the existing file first)
 - Sets up a `post-commit` git hook to clear collected context after successful non-gle commits (see Husky below)
-- Guides you through setting `GEMINI_API_KEY`
+- Guides you through setting `GLE_GEMINI_API_KEY`
 
 **Set your API key**
 
 ```bash
 # Add to ~/.zshrc or ~/.bashrc
-export GEMINI_API_KEY="your-api-key"
+export GLE_GEMINI_API_KEY="your-api-key"
 ```
 
-> If you manage your dotfiles in a public repository, make sure `GEMINI_API_KEY` is not committed. Add the relevant file to `.gitignore` or use a secrets manager.
+> If you manage your dotfiles in a public repository, make sure `GLE_GEMINI_API_KEY` is not committed. Add the relevant file to `.gitignore` or use a secrets manager.
 
 ### Husky
 

@@ -140,14 +140,14 @@ gle install
 
 - Node.js >= 18 の確認
 - Claude Code がインストールされているか確認（`claude --version`）
-- `GEMINI_API_KEY` 環境変数の存在確認
+- `GLE_GEMINI_API_KEY` 環境変数の存在確認
 
-`GEMINI_API_KEY` が未設定の場合、以下を表示して処理を継続する（警告扱い）:
+`GLE_GEMINI_API_KEY` が未設定の場合、以下を表示して処理を継続する（警告扱い）:
 
 ```
-⚠ GEMINI_API_KEY が設定されていません。
+⚠ GLE_GEMINI_API_KEY が設定されていません。
   コミットメッセージ生成を使用するには以下を ~/.zshrc または ~/.bashrc に追記してください:
-  export GEMINI_API_KEY="your-api-key"
+  export GLE_GEMINI_API_KEY="your-api-key"
   取得先: https://aistudio.google.com/app/apikey
 ```
 
@@ -378,7 +378,7 @@ gle のセットアップが完了しました。
 以下のいずれかに該当する場合は生成せず、原則として通常の `git commit` にフォールバックする:
 - `--amend` が指定されている
 - `-m` / `--message` / `-F` / `--file` が指定されており、ユーザーが明示的にメッセージを与えている
-- `GEMINI_API_KEY` 環境変数が未設定
+- `GLE_GEMINI_API_KEY` 環境変数が未設定
 - `.git/GLE_COMMIT_CONTEXT.md` が存在しない、かつ staged diff が空
 
 **処理フロー**:
@@ -481,7 +481,7 @@ diff 本文は最大 8000 文字。超過した場合は切り詰め、その旨
 
 **エンドポイント**:
 ```
-POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=<GEMINI_API_KEY>
+POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=<GLE_GEMINI_API_KEY>
 ```
 
 **プロンプトフォーマット**:
@@ -557,7 +557,7 @@ git hook:
   ✓ core.hooksPath      ~/.gle/hooks
 
 環境変数:
-  ✓ GEMINI_API_KEY      設定済み
+  ✓ GLE_GEMINI_API_KEY      設定済み
 
 現在のコンテキスト:
   プロジェクト: /home/user/my-project
@@ -674,9 +674,9 @@ Husky 以外のツールが `core.hooksPath` を設定している場合、設�
 
 ## 10. セキュリティ
 
-- `GEMINI_API_KEY` はファイルに書き込まない。環境変数のみで参照する。
+- `GLE_GEMINI_API_KEY` はファイルに書き込まない。環境変数のみで参照する。
 - `.git/GLE_COMMIT_CONTEXT.md` はプロジェクトの git 管理対象外（`.git/` 直下）。リポジトリにプッシュされない。
-- `gle commit` は `GEMINI_API_KEY` が未設定の場合は API コールを行わない。
+- `gle commit` は `GLE_GEMINI_API_KEY` が未設定の場合は API コールを行わない。
 - hook スクリプトは stdin の JSON のみを信頼する。環境変数 `PATH` は最小限の操作のみ行う。
 
 ---
