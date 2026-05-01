@@ -7,7 +7,7 @@ export const DEFAULT_LANGUAGE = "auto";
 export const DEFAULT_PROVIDER = "gemini";
 
 export const DEFAULT_MODELS = {
-  gemini: "gemini-2.0-flash",
+  gemini: "gemini-2.5-flash",
   openai: "gpt-4o",
 } as const;
 

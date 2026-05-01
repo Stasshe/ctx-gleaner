@@ -24,7 +24,8 @@ export async function statusCommand(cwd: string): Promise<number> {
     .catch(() => ({} as ClaudeSettings));
   const userPromptCommand = `node ${getDistHookPath("user-prompt-submit")}`;
   const stopCommand = `node ${getDistHookPath("stop")}`;
-  const hookPath = (await getCoreHooksPath()) ?? getDefaultHooksDir();
+  const configuredHooksPath = await getCoreHooksPath();
+  const hookPath = configuredHooksPath ?? getDefaultHooksDir();
   const postCommitPath = join(hookPath, "post-commit");
   const postCommitContent = await readFile(postCommitPath, "utf8").catch(() => "");
   const contextPath = await getContextFilePath(cwd).catch(() => null);
@@ -46,7 +47,7 @@ export async function statusCommand(cwd: string): Promise<number> {
     `  ${postCommitContent.includes(`node ${getDistHookPath("post-commit")}`) ? "✓" : "✗"} post-commit       ${postCommitPath}`,
   );
   console.log(
-    `  ${await exists(postCommitPath) || hookPath ? "✓" : "✗"} core.hooksPath    ${hookPath}`,
+    `  ${configuredHooksPath ? "✓" : "✗"} core.hooksPath    ${hookPath}`,
   );
   console.log("");
   console.log("設定:");
