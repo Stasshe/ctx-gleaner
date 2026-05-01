@@ -1,21 +1,24 @@
 {
-  "name": "stasshe-npm",
-  "version": "0.0.0",
+  "name": "ctx-gleaner",
+  "version": "0.3.0",
   "type": "module",
-  "description": "",
+  "description": "Context-aware commit message generator for Claude Code",
   "main": "dist/index.js",
-  "module": "dist/index.esm.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "gle": "./bin/gle.js"
+  },
   "files": [
+    "bin",
     "dist"
   ],
   "scripts": {
-    "build": "tsc && rollup -c",
+    "build": "tsc",
     "dev": "tsc --watch",
-    "test": "node tests/master.test.mjs",
-    "lint": "biome lint src/**/*.ts tests/*.mjs",
-    "lint:fix": "biome check --write src/**/*.ts tests/*.mjs",
-    "format": "biome format src/**/*.ts tests/*.mjs",
+    "test": "vitest run",
+    "lint": "biome lint src/**/*.ts tests/**/*.ts",
+    "lint:fix": "biome check --write src/**/*.ts tests/**/*.ts",
+    "format": "biome format --write src/**/*.ts tests/**/*.ts",
     "clean": "rm -rf dist"
   },
   "keywords": [],
@@ -23,13 +26,14 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Stasshe/stasshe-npm"
+    "url": "https://github.com/Stasshe/ctx-gleaner"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.13",
     "@types/node": "24.5.1",
-    "rollup": "^4.60.2",
-    "rollup-plugin-typescript2": "^0.36.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.5"
   }

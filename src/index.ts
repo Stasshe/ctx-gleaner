@@ -1,8 +1,3 @@
-/**
- * Latexium - A powerful TypeScript library for parsing and analyzing LaTeX mathematical expressions
- *
- * Main entry point providing the core API functions
- */
-
-// Export types
-// export * from './types';
+export { resolveConfig } from "./config.js";
+export { createProvider } from "./providers/index.js";
+export { extractAssistantText, truncateTail } from "./transcript.js";
