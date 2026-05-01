@@ -76,6 +76,15 @@ describe("install and prepare commands", () => {
 
       const hook = await readFile(join(fakeHome, ".gle", "hooks", "post-commit"), "utf8");
       expect(hook).toContain("_post-commit");
+
+      const context = await readFile(
+        join(repo, ".gle", "GLE_COMMIT_CONTEXT.md"),
+        "utf8",
+      );
+      expect(context).toContain("<!-- gle context -->");
+
+      const gitignore = await readFile(join(repo, ".gitignore"), "utf8");
+      expect(gitignore.split("\n")).toContain(".gle/");
     } finally {
       await rm(fakeHome, { recursive: true, force: true });
       await rm(repo, { recursive: true, force: true });

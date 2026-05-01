@@ -1,7 +1,14 @@
 import { chmod, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { resolveConfig } from "../config.js";
-import { getCoreHooksPath, getGitRoot, runGit, setCoreHooksPath } from "../git.js";
+import { ensureContextFile } from "../context.js";
+import {
+  getContextFilePath,
+  getCoreHooksPath,
+  getGitRoot,
+  runGit,
+  setCoreHooksPath,
+} from "../git.js";
 import {
   getClaudeBackupPath,
   getClaudeSettingsPath,
@@ -241,7 +248,10 @@ export async function prepareCommand(cwd: string): Promise<number> {
   getGlobalCliPath();
   await ensureGitInstalled();
   const hookPathDescription = await installGitHook(cwd);
+  const contextPath = await getContextFilePath(cwd);
+  await ensureContextFile(contextPath);
 
   print(`✓ git post-commit hook を設定しました (${hookPathDescription})`);
+  print(`✓ コンテキスト保存先を初期化しました (${contextPath})`);
   return 0;
 }
