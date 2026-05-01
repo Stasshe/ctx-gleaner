@@ -186,3 +186,27 @@ export async function hasStagedChanges(cwd: string): Promise<boolean> {
   const result = await runGitRaw(["diff", "--cached", "--quiet"], cwd);
   return result.code === 1;
 }
+
+export async function hasUnstagedChanges(cwd: string): Promise<boolean> {
+  const result = await runGitRaw(["diff", "--quiet"], cwd);
+  return result.code === 1;
+}
+
+export async function getUnstagedDiffStat(cwd: string): Promise<string> {
+  const args = ["diff", "--find-renames", "--stat", "--", ...buildDiffPathspec()];
+  const { stdout } = await runGit(args, cwd);
+  return stdout.trim();
+}
+
+export async function getUnstagedDiffBody(cwd: string): Promise<string> {
+  const { stdout } = await runGit(
+    ["diff", "--find-renames=50%", "--", ...buildDiffPathspec()],
+    cwd,
+  );
+  return stdout.trim();
+}
+
+export async function getGeneratedMsgPath(cwd: string): Promise<string> {
+  const gitDir = await getGitDir(cwd);
+  return resolve(gitDir, "GLE_GENERATED_MSG.md");
+}

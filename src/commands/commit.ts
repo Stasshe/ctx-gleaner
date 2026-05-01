@@ -13,6 +13,9 @@ import {
   getRenameEntries,
   hasMergeInProgress,
   hasStagedChanges,
+  hasUnstagedChanges,
+  getUnstagedDiffStat,
+  getUnstagedDiffBody,
 } from "../git.js";
 import { PROVIDER_API_KEY_ENV } from "../constants.js";
 import { createProvider } from "../providers/index.js";
@@ -99,8 +102,9 @@ export async function commitCommand(cwd: string, rawArgs: string[]): Promise<num
   const contextPath = await getContextFilePath(cwd);
   const contextMd = await readContextFile(contextPath);
   const staged = await hasStagedChanges(cwd);
+  const useUnstaged = !staged && await hasUnstagedChanges(cwd);
 
-  if (!staged && isContextEffectivelyEmpty(contextMd)) {
+  if (!staged && !useUnstaged && isContextEffectivelyEmpty(contextMd)) {
     return runGitCommit(cwd, rawArgs);
   }
 
@@ -114,12 +118,16 @@ export async function commitCommand(cwd: string, rawArgs: string[]): Promise<num
 
   try {
     await getGitRoot(cwd);
-    const diffStat = await getCachedDiffStat(cwd);
-    const renameEntries = await getRenameEntries(cwd);
+    const diffStat = useUnstaged
+      ? await getUnstagedDiffStat(cwd)
+      : await getCachedDiffStat(cwd);
+    const renameEntries = useUnstaged ? [] : await getRenameEntries(cwd);
     const renamedModifiedPaths = renameEntries
       .filter((entry) => entry.modified)
       .map((entry) => entry.to);
-    const fullDiff = await getCachedDiffBody(cwd, renamedModifiedPaths);
+    const fullDiff = useUnstaged
+      ? await getUnstagedDiffBody(cwd)
+      : await getCachedDiffBody(cwd, renamedModifiedPaths);
     const diffBody = fullDiff.slice(0, config.maxDiffChars);
     const generatedMessage = await provider.generateMessage({
       contextMd,
@@ -134,7 +142,10 @@ export async function commitCommand(cwd: string, rawArgs: string[]): Promise<num
         await runEditor(tempFile.path);
       }
 
-      const exitCode = await runGitCommit(cwd, ["-F", tempFile.path, ...gitArgs]);
+      const passthroughArgs = useUnstaged && !gitArgs.includes("-a")
+        ? ["-a", ...gitArgs]
+        : gitArgs;
+      const exitCode = await runGitCommit(cwd, ["-F", tempFile.path, ...passthroughArgs]);
       if (exitCode === 0) {
         await resetContextFile(contextPath);
       }

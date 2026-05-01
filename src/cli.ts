@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { commitCommand, postCommitCommand } from "./commands/commit.js";
+import { generateCommand } from "./commands/generate.js";
 import { contextCommand } from "./commands/context.js";
 import { installCommand, prepareCommand } from "./commands/install.js";
 import { statusCommand } from "./commands/status.js";
@@ -18,6 +19,7 @@ Usage:
   gle uninstall
   gle commit [git flags]
   gle commit --edit [git flags]
+  gle generate
   gle status
   gle context [--clear]
   gle --help
@@ -37,6 +39,8 @@ async function main(): Promise<number> {
       return uninstallCommand(cwd);
     case "commit":
       return commitCommand(cwd, args);
+    case "generate":
+      return generateCommand(cwd);
     case "status":
       return statusCommand(cwd);
     case "context":
