@@ -10,7 +10,7 @@
 
 ### 1.1 プロダクトの目的
 
-`gle` は、Claude Code のセッション中に発生した「作業の意図（プロンプト）」と「作業結果の要約」をプロジェクトごとに自動収集し、`git commit` 時に Gemini Flash API を使って高品質なコミットメッセージを自動生成する CLI ツールである。
+`gle` は、Claude Code のセッション中に発生した「作業の意図（プロンプト）」と「作業結果の要約」をプロジェクトごとに自動収集し、`gle commit` 実行時に Gemini Flash API を使って高品質なコミットメッセージを自動生成する CLI ツールである。通常の `git commit` / `git commit -m` は変更せず、既存の Git ワークフローを妨げない。
 
 ### 1.2 解決する問題
 
@@ -21,7 +21,7 @@
 
 ### 1.3 解決アプローチ
 
-Claude Code の公式 Hooks 機能（`UserPromptSubmit`, `Stop`）でプロンプトと作業要約を `.git/GLE_COMMIT_CONTEXT.md` に自動蓄積し、`prepare-commit-msg` git hook で diff と合わせて Gemini Flash に投げてコミットメッセージを生成する。
+Claude Code の公式 Hooks 機能（`UserPromptSubmit`, `Stop`）でプロンプトと作業要約を `.git/GLE_COMMIT_CONTEXT.md` に自動蓄積する。コミットメッセージ生成は `gle commit` コマンド内でのみ行い、staged diff と蓄積コンテキストを Gemini Flash に渡して生成する。通常の `git commit` は生成対象外とする。
 
 ### 1.4 スコープ
 
@@ -50,14 +50,19 @@ Claude Code の公式 Hooks 機能（`UserPromptSubmit`, `Stop`）でプロン�
        └─ transcript_path の JSONL 末尾から
           アシスタントメッセージを抽出して追記
 
-[git commit 実行時]
+[gle commit 実行時]
   │
-  └─ prepare-commit-msg hook 発火
-       ├─ git diff --cached --find-renames で diff 取得・前処理
-       ├─ .git/GLE_COMMIT_CONTEXT.md 読み込み
-       ├─ Gemini Flash API にリクエスト
-       ├─ 生成されたメッセージを COMMIT_EDITMSG に書き込み
-       └─ .git/GLE_COMMIT_CONTEXT.md をリセット
+  ├─ git diff --cached --find-renames で diff 取得・前処理
+  ├─ .git/GLE_COMMIT_CONTEXT.md 読み込み
+  ├─ Gemini Flash API にリクエスト
+  ├─ 生成されたメッセージを一時ファイルに書き込み
+  ├─ git commit -F <生成メッセージファイル> <pass-through flags> を実行
+  └─ コミット成功時のみ .git/GLE_COMMIT_CONTEXT.md をリセット
+
+[通常の git commit 実行時]
+  │
+  └─ gle は生成処理を行わない
+       └─ post-commit hook が有効な場合のみ、成功後に .git/GLE_COMMIT_CONTEXT.md をリセット
 ```
 
 ### 2.2 コンポーネント構成
@@ -72,7 +77,7 @@ gle (npm package)
 │   ├── hooks/
 │   │   ├── user-prompt-submit.js  # Claude Code UserPromptSubmit hook
 │   │   ├── stop.js                # Claude Code Stop hook
-│   │   └── prepare-commit-msg.sh  # git hook
+│   │   └── post-commit.js         # context clear hook
 │   └── gemini.js            # Gemini API クライアント
 └── package.json
 ```
@@ -189,15 +194,15 @@ gle install
 
 #### ステップ 4: git hook の設定
 
-`gle install` は以下の優先順位で hook の設置方法を自動判定する。
+`gle install` は、コミット成功後のコンテキストクリア用に `post-commit` hook を設定する。
 
 **判定ロジック:**
 
 ```
 プロジェクトルートに .husky/ ディレクトリが存在する？
-  YES → [Husky モード] .husky/prepare-commit-msg に追記
+  YES → [Husky モード] .husky/post-commit に追記
   NO  → core.hooksPath が既に設定されている？
-          YES → 設定済みの hooksPath ディレクトリに prepare-commit-msg を配置
+          YES → 設定済みの hooksPath ディレクトリに post-commit を配置
           NO  → [通常モード] ~/.gle/hooks/ に配置し core.hooksPath をグローバル設定
 ```
 
@@ -205,19 +210,19 @@ gle install
 
 **[Husky モード]**
 
-`.husky/prepare-commit-msg` が存在しない場合は新規作成:
+`.husky/post-commit` が存在しない場合は新規作成:
 
 ```sh
 #!/usr/bin/env sh
-# gle: AI commit message generator
-node "$(npm root)/.bin/gle" _prepare-commit-msg "$@"
+# gle: clear collected context after successful commit
+node "$(npm root)/.bin/gle" _post-commit
 ```
 
-既に `.husky/prepare-commit-msg` が存在する場合は末尾に追記:
+既に `.husky/post-commit` が存在する場合は末尾に追記:
 
 ```sh
-# gle: AI commit message generator
-node "$(npm root)/.bin/gle" _prepare-commit-msg "$@"
+# gle: clear collected context after successful commit
+node "$(npm root)/.bin/gle" _post-commit
 ```
 
 ファイルに実行権限を付与する（`chmod +x`）。  
@@ -231,13 +236,15 @@ node "$(npm root)/.bin/gle" _prepare-commit-msg "$@"
 git config --global core.hooksPath ~/.gle/hooks
 ```
 
-`~/.gle/hooks/prepare-commit-msg` を作成し実行権限を付与する。
+`~/.gle/hooks/post-commit` を作成し実行権限を付与する。
+
+**注意**: `post-commit` は補助機能であり、`gle commit` 本体はコミット成功時に自前でコンテキストをクリアする。hook は通常の `git commit` を使った場合の掃除用である。
 
 #### ステップ 5: 完了表示
 
 ```
 ✓ Claude Code hooks を登録しました (~/.claude/settings.json)
-✓ git global hook を設定しました (~/.gle/hooks)
+✓ git post-commit hook を設定しました (~/.gle/hooks)
 
 gle のセットアップが完了しました。
 次回 Claude Code セッションから自動でコンテキストが収集されます。
@@ -248,7 +255,7 @@ gle のセットアップが完了しました。
 ### 3.3 `gle uninstall` の処理内容
 
 - `~/.claude/settings.json` から gle の hook エントリを削除
-- `~/.gle/hooks/prepare-commit-msg` を削除
+- `~/.gle/hooks/post-commit` を削除
 - `git config --global --unset core.hooksPath` を実行（ただし、他のツールが hooksPath を使っていた場合は削除せず警告のみ）
 - `~/.claude/settings.json.gle-backup` が存在する場合、復元するか確認する
 
@@ -354,42 +361,74 @@ gle のセットアップが完了しました。
 
 ---
 
-## 5. git Hook 実装仕様
+## 5. コミット生成実装仕様
 
-### 5.1 prepare-commit-msg Hook
+### 5.1 `gle commit`
 
-**ファイル**: `~/.gle/hooks/prepare-commit-msg`  
-**トリガー**: `git commit` 実行時、エディタが開く前
+**トリガー**: ユーザーが `gle commit [git flags]` を実行したとき
 
-**引数**:
-- `$1`: COMMIT_EDITMSG ファイルのパス
-- `$2`: コミットのソース（`message` / `template` / `merge` / `squash` / `commit`）
-- `$3`: コミット SHA（`--amend` 時のみ）
+**基本方針**:
+- AI 生成は `gle commit` の内部でのみ実行する
+- 通常の `git commit` / `git commit -m` / `git commit --amend` は上書きしない
+- `gle commit` は標準の `git commit` フラグを可能な限り pass-through する
+- コミット成功時のみ `.git/GLE_COMMIT_CONTEXT.md` をリセットする
 
-**スキップ条件**:
+**スキップ条件:**
 
-以下のいずれかに該当する場合は何もせず exit 0:
-- `$2` が `merge` または `squash`（マージコミット・スカッシュコミットは生成しない）
-- `$2` が `commit`（`--amend` の場合はスキップ）
+以下のいずれかに該当する場合は生成せず、原則として通常の `git commit` にフォールバックする:
+- `--amend` が指定されている
+- `-m` / `--message` / `-F` / `--file` が指定されており、ユーザーが明示的にメッセージを与えている
 - `GEMINI_API_KEY` 環境変数が未設定
 - `.git/GLE_COMMIT_CONTEXT.md` が存在しない、かつ staged diff が空
 
 **処理フロー**:
 
-1. スキップ条件の確認
-2. `git diff --cached --find-renames --stat` で diff サマリーを取得
-3. `git diff --cached --find-renames -- . ':(exclude)*.lock' ':(exclude)package-lock.json'` で diff 本文を取得（最大 8000 文字に切り詰め）
-4. リネーム検出の前処理:  
-   `git diff --cached --diff-filter=R --name-status --find-renames` でリネームされたファイルのリストを取得し、diff が肥大化していた場合にリネーム情報として整形
-5. `.git/GLE_COMMIT_CONTEXT.md` を読み込む（存在しない場合は空文字）
-6. Gemini Flash API にリクエスト（後述のプロンプトフォーマット参照）
-7. レスポンスを `$1`（COMMIT_EDITMSG）に書き込む
-8. `.git/GLE_COMMIT_CONTEXT.md` を空にリセット（ヘッダ行のみ残す）
-9. exit 0
+1. 引数を解析する
+2. スキップ条件に該当する場合は `git commit "$@"` を実行する
+3. `git diff --cached --find-renames --stat` で diff サマリーを取得
+4. `git diff --cached --find-renames -- . ':(exclude)*.lock' ':(exclude)package-lock.json'` で diff 本文を取得（最大 8000 文字に切り詰め）
+5. リネーム検出の前処理を行う
+6. `.git/GLE_COMMIT_CONTEXT.md` を読み込む（存在しない場合は空文字）
+7. Gemini Flash API にリクエストする
+8. 生成されたコミットメッセージを一時ファイルに保存する
+9. `git commit -F <tempfile> <pass-through flags>` を実行する
+10. `git commit` が成功した場合のみ `.git/GLE_COMMIT_CONTEXT.md` を空にリセットする
+11. 一時ファイルを削除して exit する
+
+**`--no-edit` の扱い**:
+
+`gle commit --no-edit` は、生成されたメッセージをそのまま採用してコミットする。通常の `git commit --no-edit` と異なり、生成結果を採用する入口として扱う。
+
+**`-m` / `--message` の扱い**:
+
+`gle commit -m "..."` は生成しない。ユーザーが明示的にメッセージを指定しているため、通常の `git commit -m "..."` と同じ意味で扱う。
+
+**`--amend` の扱い**:
+
+`gle commit --amend` は生成しない。既存メッセージを勝手に上書きしないため、通常の `git commit --amend` にフォールバックする。
 
 **エラーハンドリング**:
-- Gemini API エラー（ネットワーク、認証失敗等）の場合: stderr にエラーを出力し、COMMIT_EDITMSG を変更せず exit 0。ユーザーは通常通りエディタでメッセージを書ける。
+- Gemini API エラー（ネットワーク、認証失敗等）の場合: stderr にエラーを出力し、通常の `git commit` にフォールバックする
 - タイムアウト: 15 秒
+- `git commit` が失敗した場合: `.git/GLE_COMMIT_CONTEXT.md` はリセットしない
+
+### 5.1.1 post-commit Hook
+
+**ファイル**: `~/.gle/hooks/post-commit` または `.husky/post-commit`  
+**トリガー**: 通常の `git commit` が成功した後
+
+**役割**:
+- 通常の `git commit` / `git commit -m` を使った場合でも、古い Claude Code コンテキストが次回の `gle commit` に混ざらないように掃除する
+- コミットメッセージ生成は行わない
+
+**処理フロー**:
+
+1. `git rev-parse --git-dir` で `.git` ディレクトリを解決
+2. `.git/GLE_COMMIT_CONTEXT.md` が存在する場合、ヘッダ行のみ残してリセット
+3. exit 0
+
+**エラーハンドリング**:
+- 失敗しても commit 自体はすでに成功しているため、stderr に警告を出して exit 0
 
 ### 5.2 diff 前処理仕様
 
@@ -497,10 +536,10 @@ POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:ge
 |---|---|
 | `gle install` | セットアップを実行 |
 | `gle uninstall` | セットアップを取り消す |
+| `gle commit [git flags]` | コンテキストと staged diff からメッセージを生成して commit |
 | `gle status` | 現在の設定状態を表示 |
 | `gle context` | 現在の `.git/GLE_COMMIT_CONTEXT.md` の内容を表示 |
 | `gle context --clear` | `.git/GLE_COMMIT_CONTEXT.md` を手動でリセット |
-| `gle generate` | コミットせずにメッセージだけ生成して stdout に出力 |
 | `gle --version` | バージョン表示 |
 | `gle --help` | ヘルプ表示 |
 
@@ -513,8 +552,8 @@ Claude Code hooks:
   ✓ UserPromptSubmit  登録済み (~/.claude/settings.json)
   ✓ Stop              登録済み (~/.claude/settings.json)
 
-git global hook:
-  ✓ prepare-commit-msg  (~/.gle/hooks/prepare-commit-msg)
+git hook:
+  ✓ post-commit         (~/.gle/hooks/post-commit)
   ✓ core.hooksPath      ~/.gle/hooks
 
 環境変数:
@@ -525,9 +564,25 @@ git global hook:
   ✓ GLE_COMMIT_CONTEXT.md  3件のエントリ
 ```
 
-### 7.3 `gle generate` の動作
+### 7.3 `gle commit` の動作
 
-`prepare-commit-msg` と同じロジックでメッセージを生成し、stdout に出力するのみ。COMMIT_EDITMSG は変更しない。コンテキストファイルもリセットしない。デバッグ・プレビュー用途。
+`gle commit` は、staged diff と `.git/GLE_COMMIT_CONTEXT.md` をもとに Gemini Flash API でコミットメッセージを生成し、そのメッセージを `git commit -F <tempfile>` に渡す。
+
+全フラグは可能な限り `git commit` に pass-through する。ただし、以下は生成をスキップして通常の `git commit` として扱う:
+
+- `-m` / `--message`
+- `-F` / `--file`
+- `--amend`
+
+存在意義は以下である:
+
+1. 通常の `git commit` を壊さず、AI 生成を明示的な入口に閉じ込める
+2. `git commit -m` を従来通り使える状態に保つ
+3. `gle commit` を選んだときだけ、Claude Code の文脈を使ったメッセージ生成を行う
+
+**通常の `git commit` との関係**:
+
+`git commit` / `git commit -m` は生成対象外。post-commit hook が設定されている場合、コミット成功後に `.git/GLE_COMMIT_CONTEXT.md` をリセットするだけである。
 
 ---
 
@@ -541,7 +596,7 @@ git global hook:
 
 ~/.gle/
 └── hooks/
-    └── prepare-commit-msg  # git global hook (実行権限付き)
+    └── post-commit         # context clear hook (実行権限付き)
 
 <project>/.git/
 └── GLE_COMMIT_CONTEXT.md   # コミットごとにリセットされるコンテキスト
@@ -573,7 +628,7 @@ git global hook:
 
 ### 9.1 コンテキストなしでのコミット
 
-`.git/GLE_COMMIT_CONTEXT.md` が存在しない、または空の場合でも `prepare-commit-msg` hook は動作する。diff 情報のみで生成する。精度は下がるが動作は保証する。
+`.git/GLE_COMMIT_CONTEXT.md` が存在しない、または空の場合でも `gle commit` は動作する。diff 情報のみで生成する。精度は下がるが動作は保証する。
 
 ### 9.2 複数ターミナルでの並行作業
 
@@ -585,7 +640,7 @@ git global hook:
 
 ### 9.4 `--amend` コミット
 
-`prepare-commit-msg` の `$2` 引数が `commit` の場合はスキップ。既存メッセージを上書きしない。
+`gle commit --amend` は生成をスキップし、通常の `git commit --amend` にフォールバックする。既存メッセージを上書きしない。
 
 ### 9.5 Husky との共存
 
@@ -595,7 +650,7 @@ Husky が検出された場合（プロジェクトルートに `.husky/` が存
 
 **Husky モードでの `gle uninstall`**:
 
-`.husky/prepare-commit-msg` 内の gle が追記した行を削除する。ファイルが gle のエントリのみになった場合はファイルごと削除する。`core.hooksPath` は変更しない。
+`.husky/post-commit` 内の gle が追記した行を削除する。ファイルが gle のエントリのみになった場合はファイルごと削除する。`core.hooksPath` は変更しない。
 
 **Husky v8 以前への対応**:
 
@@ -603,13 +658,13 @@ v8 は `package.json` の `husky.hooks` フィールドで設定する形式だ�
 
 ```
 ⚠ Husky v8 が検出されました。gle は Husky v9+ のみ自動対応します。
-  手動で .husky/prepare-commit-msg を作成するか、Husky を v9 にアップグレードしてください。
+  手動で .husky/post-commit を作成するか、Husky を v9 にアップグレードしてください。
   詳細: https://github.com/gle-dev/gle#husky-v8
 ```
 
 **その他の `core.hooksPath` 競合**:
 
-Husky 以外のツールが `core.hooksPath` を設定している場合、設定済みのパスに `prepare-commit-msg` を配置し、`~/.gle/hooks/` への変更は行わない。その旨を表示する。
+Husky 以外のツールが `core.hooksPath` を設定している場合、設定済みのパスに `post-commit` を配置し、`~/.gle/hooks/` への変更は行わない。その旨を表示する。
 
 ### 9.6 `settings.json` の JSON 破損
 
@@ -621,7 +676,7 @@ Husky 以外のツールが `core.hooksPath` を設定している場合、設�
 
 - `GEMINI_API_KEY` はファイルに書き込まない。環境変数のみで参照する。
 - `.git/GLE_COMMIT_CONTEXT.md` はプロジェクトの git 管理対象外（`.git/` 直下）。リポジトリにプッシュされない。
-- `prepare-commit-msg` hook は `GEMINI_API_KEY` が未設定の場合は API コールを行わない。
+- `gle commit` は `GEMINI_API_KEY` が未設定の場合は API コールを行わない。
 - hook スクリプトは stdin の JSON のみを信頼する。環境変数 `PATH` は最小限の操作のみ行う。
 
 ---

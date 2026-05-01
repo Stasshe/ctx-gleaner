@@ -38,19 +38,19 @@ Claude Code runs in interactive mode, writing directly to the tty. There's nothi
 
 Shell-level wrappers (`preexec` hooks in zsh) can intercept the command line before Claude Code launches, but they require modifying the user's shell config — a high-trust ask for an OSS tool, and it breaks for anyone not on zsh.
 
-gle solves this using **Claude Code's official Hooks API** — the only mechanism that fires deterministically inside the agent loop, with no shell modification required.
+ctx-gleaner solves this using **Claude Code's official Hooks API** — the only mechanism that fires deterministically inside the agent loop, with no shell modification required.
 
 ---
 
-## How gle Works
+## How It Works
 
 ### Step 1 — Collect context inside the Claude Code session
 
-gle registers two hooks via `~/.claude/settings.json`:
+ctx-gleaner registers two hooks via `~/.claude/settings.json`:
 
-**`UserPromptSubmit`** fires every time you send a prompt. gle writes the prompt text to `.git/GLE_COMMIT_CONTEXT.md`. This is your intent — the *why*.
+**`UserPromptSubmit`** fires every time you send a prompt. ctx-gleaner writes the prompt text to `.git/GLE_COMMIT_CONTEXT.md`. This is your intent — the *why*.
 
-**`Stop`** fires every time Claude finishes a response. gle reads the session transcript (`transcript_path` from the hook payload) and appends the tail of the last assistant message. This is the *what actually happened* — a complement to your intent when the implementation diverged from the prompt.
+**`Stop`** fires every time Claude finishes a response. ctx-gleaner reads the session transcript (`transcript_path` from the hook payload) and appends the tail of the last assistant message. This is the *what actually happened* — a complement to your intent when the implementation diverged from the prompt.
 
 Both hooks write to `.git/GLE_COMMIT_CONTEXT.md`, which lives inside `.git/` and is therefore never tracked by git. No `.gitignore` entry needed.
 
@@ -76,25 +76,29 @@ dependency. Updated 7 tests, all passing.
 Remove the jwt package from package.json, it's no longer needed
 ```
 
-### Step 2 — Generate the message at commit time
+### Step 2 — Commit
 
-When you run `git commit`, a `prepare-commit-msg` hook fires. gle:
+Use `gle commit` when you want an AI-generated commit message. ctx-gleaner generates the message from your accumulated context and diff, then hands off to `git commit`.
 
-1. Runs `git diff --cached` with rename detection and lock file exclusion
-2. Reads `.git/GLE_COMMIT_CONTEXT.md`
-3. Sends both to Gemini Flash
-4. Writes the generated message into your editor
-5. Resets the context file
+Normal `git commit` and `git commit -m` keep their original Git behavior. They do not trigger message generation.
 
-You review the message, adjust if needed, and save. Done.
+```bash
+gle commit                   # generate a message, then commit
+gle commit --no-edit         # accept the generated message without opening editor
+gle commit -a                # stage all tracked files, then generate and commit
+gle commit -m "message"      # no generation; behaves like git commit -m
+gle commit --amend           # no generation; behaves like git commit --amend
+```
+
+After the commit completes, `.git/GLE_COMMIT_CONTEXT.md` is reset automatically.
 
 ---
 
 ## Token and Cost Design
 
-This is where most AI commit tools cut corners. gle doesn't.
+This is where most AI commit tools cut corners. ctx-gleaner doesn't.
 
-**Rename detection.** `git mv` produces diffs that look like a full file deletion plus a full file addition — even for a one-character rename. For large refactors involving directory restructuring, this can balloon a diff to tens of thousands of tokens. gle runs `git diff --cached --find-renames=50% --diff-filter=R` before building the prompt. Renamed files are replaced with a compact summary:
+**Rename detection.** `git mv` produces diffs that look like a full file deletion plus a full file addition — even for a one-character rename. For large refactors involving directory restructuring, this can balloon a diff to tens of thousands of tokens. ctx-gleaner runs `git diff --cached --find-renames=50% --diff-filter=R` before building the prompt. Renamed files are replaced with a compact summary:
 
 ```
 [Renames detected: 5]
@@ -108,7 +112,7 @@ Files that were renamed *and* modified get their actual diff appended separately
 
 **Diff truncation.** The diff body is capped at 8,000 characters. If truncated, the prompt notes this explicitly so the model doesn't hallucinate about code it hasn't seen.
 
-**Model choice.** gle uses `gemini-2.0-flash`. It has a large context window (useful for big diffs), low latency (you're waiting on a commit), and a free tier generous enough that typical commit message generation costs effectively nothing. For structured, constrained generation tasks like this, Flash performs on par with larger models at a fraction of the cost.
+**Model choice.** ctx-gleaner uses `gemini-2.0-flash`. It has a large context window (useful for big diffs), low latency (you're waiting on a commit), and a free tier generous enough that typical commit message generation costs effectively nothing. For structured, constrained generation tasks like this, Flash performs on par with larger models at a fraction of the cost.
 
 **`Stop` hook is async.** The transcript read and append runs with `async: true`, so it never blocks Claude Code's response cycle. Zero added latency to your Claude Code workflow.
 
@@ -127,21 +131,21 @@ Files that were renamed *and* modified get their actual diff appended separately
 **Per-project (recommended)**
 
 ```bash
-npm install --save-dev gle
+npm install --save-dev ctx-gleaner
 npx gle install
 ```
 
 **Global**
 
 ```bash
-npm install -g gle
+npm install -g ctx-gleaner
 gle install
 ```
 
 `gle install` does three things:
 
 - Registers `UserPromptSubmit` and `Stop` hooks in `~/.claude/settings.json` (backs up the existing file first)
-- Sets up `prepare-commit-msg` git hook (see Husky below)
+- Sets up a `post-commit` git hook to clear collected context after successful non-gle commits (see Husky below)
 - Guides you through setting `GEMINI_API_KEY`
 
 **Set your API key**
@@ -151,9 +155,11 @@ gle install
 export GEMINI_API_KEY="your-api-key"
 ```
 
+> If you manage your dotfiles in a public repository, make sure `GEMINI_API_KEY` is not committed. Add the relevant file to `.gitignore` or use a secrets manager.
+
 ### Husky
 
-gle auto-detects Husky v9+. If `.husky/` exists in your project root, gle writes to `.husky/prepare-commit-msg` instead of touching `core.hooksPath`. If the file already exists, gle appends to it — your existing hooks are untouched.
+ctx-gleaner auto-detects Husky v9+. If `.husky/` exists in your project root, `gle install` writes to `.husky/post-commit` instead of touching `core.hooksPath`. If the file already exists, ctx-gleaner appends to it — your existing hooks are untouched.
 
 Husky v8 (configured via `package.json`) is not auto-detected. See [Husky v8 manual setup](#husky-v8).
 
@@ -161,30 +167,34 @@ Husky v8 (configured via `package.json`) is not auto-detected. See [Husky v8 man
 
 ## Usage
 
-After install, just work normally.
+After install, use `gle commit` when you want ctx-gleaner to generate the commit message.
 
 ```bash
 # Work with Claude Code as usual
 claude
 
-# Commit as usual
+# Stage your changes
 git add .
-git commit
-# gle generates the message and inserts it into your editor
+
+# Commit — ctx-gleaner generates the message
+gle commit
 ```
 
-**Preview before committing**
+**All standard git commit flags are supported:**
 
 ```bash
-gle generate
-# Prints the generated message to stdout without committing or resetting context
+gle commit -a                # stage all tracked changes, then generate and commit
+gle commit --no-edit         # accept the generated message without opening editor
+gle commit -v                # pass -v through to git commit
+gle commit -m "message"      # no generation; behaves like git commit -m
+gle commit --amend           # amend last commit; generation skipped
 ```
 
 **Inspect or clear context**
 
 ```bash
-gle context          # Show the current context file
-gle context --clear  # Reset manually (e.g. after discarding work)
+gle context          # show the current context file
+gle context --clear  # reset manually (e.g. after discarding work in progress)
 ```
 
 **Check setup**
@@ -200,11 +210,11 @@ gle status
 | Command | Description |
 |---|---|
 | `gle install` | Run setup |
-| `gle uninstall` | Remove all gle configuration |
+| `gle uninstall` | Remove all ctx-gleaner configuration |
+| `gle commit [git flags]` | Generate a message from context + staged diff, then commit |
 | `gle status` | Show current setup state |
 | `gle context` | Print the current context file |
 | `gle context --clear` | Reset context manually |
-| `gle generate` | Preview generated message without committing |
 | `gle --version` | Print version |
 | `gle --help` | Print help |
 
@@ -214,9 +224,11 @@ gle status
 
 **Parallel Claude Code sessions.** If you run multiple Claude Code instances in separate terminals against the same repo, their hooks write to the same context file. Entries may interleave. v0.1 does not handle this — context from both sessions will be included in the next commit message.
 
-**Context-free commits.** If you commit without having used Claude Code (direct edits, etc.), the context file will be empty. gle falls back to diff-only generation. The message will be less informative about intent.
+**Context-free commits.** If you run `gle commit` without having used Claude Code (direct edits, etc.), the context file will be empty. ctx-gleaner falls back to diff-only generation. The message will be less informative about intent.
 
-**Merge and amend commits.** gle skips generation for `git merge` and `git commit --amend`. Your editor opens normally.
+**Normal Git commits.** `git commit` and `git commit -m` never generate messages. If the optional post-commit hook is installed, they only clear `.git/GLE_COMMIT_CONTEXT.md` after a successful commit so stale context does not leak into a later `gle commit`.
+
+**Merge commits.** `gle commit` during a merge skips generation. Your editor opens normally.
 
 **Claude Code only.** v0.1 supports Claude Code hooks only. Codex CLI and GitHub Copilot are on the roadmap.
 
