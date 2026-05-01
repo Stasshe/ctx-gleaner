@@ -152,6 +152,7 @@ ctx-gleaner is installed globally because Claude Code hooks are stored in the gl
 
 - Registers `UserPromptSubmit` and `Stop` hooks in `~/.claude/settings.json`
 - Backs up the previous settings file to `~/.claude/settings.json.gle-backup`
+- Creates editable user config files if missing: `~/.gle/glerc.json` and `~/.gle/prompt.md`
 
 `gle install` is user-level and does not require a Git repository. Claude hooks are safe in repositories where you do not use ctx-gleaner: if the current working directory is not a Git repository, the hooks exit without output.
 

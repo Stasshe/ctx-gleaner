@@ -6,6 +6,8 @@ import {
   getClaudeBackupPath,
   getClaudeSettingsPath,
   getDefaultHooksDir,
+  getGlobalConfigPath,
+  getGlobalPromptPath,
 } from "../paths.js";
 import {
   type ClaudeSettings,
@@ -35,6 +37,43 @@ function getGlobalCliPath(): string {
 
 function buildCliCommand(subcommand: string): string {
   return `node ${quoteShellArg(getGlobalCliPath())} ${subcommand}`;
+}
+
+const DEFAULT_GLOBAL_CONFIG = `{
+  "provider": "gemini",
+  "model": "gemini-2.5-flash",
+  "maxDiffChars": 8000,
+  "language": "auto"
+}
+`;
+
+const DEFAULT_PROMPT_MD = `あなたは git コミットメッセージの専門家です。
+以下の情報をもとに、簡潔で明確なコミットメッセージを生成してください。
+
+## ルール
+- 1行目は Conventional Commits 形式を推奨する
+- 1行目は短く、変更の中心を表す
+- 必要な場合のみ空行の後に本文を書く
+- 本文では変更理由と重要な実装内容を箇条書きにする
+- コミットメッセージ以外の説明や前置きは出力しない
+`;
+
+async function ensureUserConfigFiles(): Promise<void> {
+  const configPath = getGlobalConfigPath();
+  const promptPath = getGlobalPromptPath();
+  await mkdir(dirname(configPath), { recursive: true });
+
+  try {
+    await readFile(configPath, "utf8");
+  } catch {
+    await writeFile(configPath, DEFAULT_GLOBAL_CONFIG, "utf8");
+  }
+
+  try {
+    await readFile(promptPath, "utf8");
+  } catch {
+    await writeFile(promptPath, DEFAULT_PROMPT_MD, "utf8");
+  }
 }
 
 async function ensureClaudeInstalled(): Promise<void> {
@@ -181,9 +220,11 @@ export async function installCommand(cwd: string): Promise<number> {
 
   const config = await resolveConfig(cwd);
   printApiKeyWarning(config.provider);
+  await ensureUserConfigFiles();
   await installClaudeHooks();
 
   console.log(`✓ Claude Code hooks を登録しました (${getClaudeSettingsPath()})`);
+  console.log(`✓ ユーザー設定を確認しました (${getGlobalConfigPath()}, ${getGlobalPromptPath()})`);
   console.log("");
   console.log("gle のユーザーセットアップが完了しました。");
   console.log("次回 Claude Code セッションから自動でコンテキストが収集されます。");

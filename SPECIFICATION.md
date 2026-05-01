@@ -188,6 +188,7 @@ Claude Code hooks は `~/.claude/settings.json` に保存されるため、hook 
 - Claude Code がインストールされているか確認（`claude --version`）
 - `GLE_PROVIDER` 環境変数の確認（デフォルト: `gemini`）
 - 指定された Provider に対応する API キー環境変数の確認
+- `~/.gle/glerc.json` と `~/.gle/prompt.md` が存在しない場合はテンプレートを作成
 
 API キーが未設定の場合、以下のように警告して処理を継続する（エラーではなく警告扱い）:
 
@@ -241,6 +242,7 @@ API キーが未設定の場合、以下のように警告して処理を継続�
 
 ```
 ✓ Claude Code hooks を登録しました (~/.claude/settings.json)
+✓ ユーザー設定を確認しました (~/.gle/glerc.json, ~/.gle/prompt.md)
 
 gle のユーザーセットアップが完了しました。
 次回 Claude Code セッションから自動でコンテキストが収集されます。
