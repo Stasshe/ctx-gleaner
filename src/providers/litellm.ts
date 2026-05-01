@@ -27,7 +27,7 @@ export class LiteLlmProvider extends BaseProvider {
         },
         body: JSON.stringify({
           model: this.config.model,
-          messages: [{ role: "user", content: this.getPrompt(params) }],
+          messages: [{ role: "user", content: await this.getPrompt(params) }],
           temperature: 0.2,
           max_tokens: 512,
         }),

@@ -3,6 +3,7 @@ import { commitCommand, postCommitCommand } from "./commands/commit.js";
 import { generateCommand } from "./commands/generate.js";
 import { contextCommand } from "./commands/context.js";
 import { installCommand, prepareCommand } from "./commands/install.js";
+import { langCommand } from "./commands/lang.js";
 import { statusCommand } from "./commands/status.js";
 import { uninstallCommand } from "./commands/uninstall.js";
 import { runStopHook } from "./hooks/stop.js";
@@ -22,6 +23,7 @@ Usage:
   gle generate
   gle status
   gle context [--clear]
+  gle lang [auto|en|ja|zh|ko|es]
   gle --help
   gle --version`);
 }
@@ -45,6 +47,8 @@ async function main(): Promise<number> {
       return statusCommand(cwd);
     case "context":
       return contextCommand(cwd, args);
+    case "lang":
+      return langCommand(args);
     case "_post-commit":
       return postCommitCommand(cwd);
     case "_user-prompt-submit":

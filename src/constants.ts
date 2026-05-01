@@ -3,6 +3,8 @@ export const CONTEXT_HEADER = "<!-- gle context -->\n";
 
 export const DEFAULT_MAX_DIFF_CHARS = 8000;
 export const DEFAULT_LANGUAGE = "auto";
+export const SUPPORTED_LANGUAGES = ["auto", "en", "ja", "zh", "ko", "es"] as const;
+export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 export const PROVIDER_TIMEOUT_MS = 15_000;
 
 export const DEFAULT_PROVIDER = "gemini";

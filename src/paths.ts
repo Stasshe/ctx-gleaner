@@ -39,3 +39,7 @@ export function getGlobalConfigPath(): string {
 export function getGlobalPromptPath(): string {
   return join(getGleRootDir(), "prompt.md");
 }
+
+export function getBuiltinPromptPath(language: string): string {
+  return join(getPackageRoot(), "prompts", `${language}.md`);
+}
