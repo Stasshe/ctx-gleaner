@@ -17,13 +17,7 @@ async function readStdin(): Promise<string> {
   return Buffer.concat(chunks).toString("utf8");
 }
 
-async function main(): Promise<void> {
-  const raw = await readStdin();
-  if (!raw.trim()) {
-    return;
-  }
-
-  const payload = JSON.parse(raw) as StopPayload;
+export async function handleStopPayload(payload: StopPayload): Promise<void> {
   if (payload.stop_hook_active || !payload.cwd || !payload.transcript_path) {
     return;
   }
@@ -39,6 +33,15 @@ async function main(): Promise<void> {
 
   const contextPath = await getContextFilePath(payload.cwd);
   await appendStopContext(contextPath, truncateTail(assistantText, 800));
+}
+
+async function main(): Promise<void> {
+  const raw = await readStdin();
+  if (!raw.trim()) {
+    return;
+  }
+
+  await handleStopPayload(JSON.parse(raw) as StopPayload);
 }
 
 main().catch((error) => {

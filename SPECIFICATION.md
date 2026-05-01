@@ -58,24 +58,28 @@ Claude Code の公式 Hooks 機能（`UserPromptSubmit`, `Stop`）でプロン�
 ### 2.2 コンポーネント構成
 
 ```
-gle (npm package)
+ctx-gleaner (npm package)
 ├── bin/
 │   └── gle.js                       # CLI エントリーポイント
-├── lib/
-│   ├── install.js                   # install コマンド実装
-│   ├── uninstall.js                 # uninstall コマンド実装
-│   ├── commit.js                    # commit コマンド実装
-│   ├── config.js                    # 設定読み込み（.glerc.json / 環境変数）
+├── src/
+│   ├── cli.ts                       # CLI エントリーポイント実装
+│   ├── commands/
+│   │   ├── install.ts               # install コマンド実装
+│   │   ├── uninstall.ts             # uninstall コマンド実装
+│   │   ├── commit.ts                # commit コマンド実装
+│   │   └── status.ts                # status コマンド実装
+│   ├── config.ts                    # 設定読み込み（~/.gle/glerc.json / ~/.gle/prompt.md / 環境変数）
 │   ├── hooks/
-│   │   ├── user-prompt-submit.js    # Claude Code UserPromptSubmit hook
-│   │   ├── stop.js                  # Claude Code Stop hook
-│   │   └── post-commit.js           # context clear hook
+│   │   ├── user-prompt-submit.ts    # Claude Code UserPromptSubmit hook
+│   │   ├── stop.ts                  # Claude Code Stop hook
+│   │   └── post-commit.ts           # context clear hook
 │   └── providers/
-│       ├── index.js                 # Provider ファクトリ・選択ロジック
-│       ├── base.js                  # BaseProvider（抽象インターフェース）
-│       ├── gemini.js                # Gemini Flash API 実装
-│       ├── openai.js                # OpenAI API 実装
-│       └── litellm.js               # LiteLLM 実装
+│       ├── index.ts                 # Provider ファクトリ・選択ロジック
+│       ├── base.ts                  # BaseProvider（抽象インターフェース）
+│       ├── gemini.ts                # Gemini API 実装
+│       ├── openai.ts                # OpenAI API 実装
+│       └── litellm.ts               # LiteLLM 実装
+├── dist/                            # TypeScript build output
 └── package.json
 ```
 
@@ -118,17 +122,17 @@ JWTをセッション認証に切り替えて、既存のテストも修正し�
 設定は以下の優先順位で解決される（上が高い）:
 
 1. 環境変数
-2. プロジェクトルートの `.glerc.json`
+2. `~/.gle/glerc.json`
 3. デフォルト値
 
-### 3.2 `.glerc.json` スキーマ
+### 3.2 `~/.gle/glerc.json` スキーマ
 
-プロジェクトルート（`git rev-parse --show-toplevel` で取得）に配置する。
+ユーザー単位のグローバル設定として `~/.gle/glerc.json` に配置する。プロジェクトルートの `.glerc.json` は使用しない。
 
 ```json
 {
   "provider": "gemini",
-  "model": "gemini-2.0-flash",
+  "model": "gemini-2.5-flash",
   "prompt": "カスタムプロンプト文字列（省略時はデフォルトプロンプトを使用）",
   "maxDiffChars": 8000,
   "language": "auto"
@@ -139,13 +143,15 @@ JWTをセッション認証に切り替えて、既存のテストも修正し�
 |---|---|---|---|
 | `provider` | string | `"gemini"` | 使用する Provider |
 | `model` | string | Provider ごとのデフォルト | 使用するモデル |
-| `prompt` | string | （後述） | BaseProvider で使うシステムプロンプト全文 |
+| `prompt` | string | （後述） | BaseProvider で使うプロンプト全文。`~/.gle/prompt.md` より優先 |
 | `maxDiffChars` | number | `8000` | diff 本文の最大文字数 |
 | `language` | string | `"auto"` | コミットメッセージの言語（`"auto"` / `"ja"` / `"en"` など） |
 
-`.glerc.json` は `.gitignore` への追加を推奨するが、強制しない。API キーを直接書かない限り、コミットしても安全である。
+### 3.3 `~/.gle/prompt.md`
 
-### 3.3 環境変数
+長いカスタムプロンプトは `~/.gle/prompt.md` に Markdown として配置できる。`~/.gle/glerc.json` の `prompt` フィールドが設定されている場合は、`prompt` フィールドを優先する。
+
+### 3.4 環境変数
 
 | 変数名 | 説明 |
 |---|---|
@@ -156,7 +162,7 @@ JWTをセッション認証に切り替えて、既存のテストも修正し�
 | `GLE_LITELLM_BASE_URL` | LiteLLM プロキシ URL（省略時は LiteLLM デフォルト） |
 | `GLE_LITELLM_MODEL` | LiteLLM で使用するモデル |
 
-API キーは環境変数のみで管理する。`.glerc.json` には書かない。
+API キーは環境変数のみで管理する。`~/.gle/glerc.json` には書かない。
 
 ---
 
@@ -166,13 +172,13 @@ API キーは環境変数のみで管理する。`.glerc.json` には書かな�
 
 **--save-dev（推奨）**:
 ```bash
-npm install --save-dev gle
+npm install --save-dev ctx-gleaner
 npx gle install
 ```
 
 **グローバル**:
 ```bash
-npm install -g gle
+npm install -g ctx-gleaner
 gle install
 ```
 
@@ -201,8 +207,8 @@ API キーが未設定の場合、以下のように警告して処理を継続�
 
 #### ステップ 2: Claude Code hook スクリプトの配置
 
-`--save-dev` の場合: `node_modules/gle/lib/hooks/` 以下のスクリプトを参照パスとして使う  
-`-g` の場合: `$(npm root -g)/gle/lib/hooks/` を参照パスとして使う
+`--save-dev` の場合: `node_modules/ctx-gleaner/dist/hooks/` 以下のスクリプトを参照パスとして使う  
+`-g` の場合: グローバルインストールされた `ctx-gleaner/dist/hooks/` 以下のスクリプトを参照パスとして使う
 
 #### ステップ 3: `~/.claude/settings.json` への hook 登録
 
@@ -216,7 +222,7 @@ API キーが未設定の場合、以下のように警告して処理を継続�
         "hooks": [
           {
             "type": "command",
-            "command": "node /path/to/gle/lib/hooks/user-prompt-submit.js"
+            "command": "node /path/to/ctx-gleaner/dist/hooks/user-prompt-submit.js"
           }
         ]
       }
@@ -226,7 +232,7 @@ API キーが未設定の場合、以下のように警告して処理を継続�
         "hooks": [
           {
             "type": "command",
-            "command": "node /path/to/gle/lib/hooks/stop.js",
+            "command": "node /path/to/ctx-gleaner/dist/hooks/stop.js",
             "async": true
           }
         ]
@@ -308,7 +314,7 @@ gle のセットアップが完了しました。
 
 ### 5.1 UserPromptSubmit Hook
 
-**ファイル**: `lib/hooks/user-prompt-submit.js`  
+**ファイル**: `dist/hooks/user-prompt-submit.js`  
 **トリガー**: Claude Code でユーザーがプロンプトを送信するたびに発火  
 **非同期**: false（同期）
 
@@ -343,7 +349,7 @@ gle のセットアップが完了しました。
 
 ### 5.2 Stop Hook
 
-**ファイル**: `lib/hooks/stop.js`  
+**ファイル**: `dist/hooks/stop.js`  
 **トリガー**: Claude Code がレスポンスを完了するたびに発火  
 **非同期**: true（`async: true`）
 
@@ -435,7 +441,7 @@ gle のセットアップが完了しました。
 
 1. 引数を解析する
 2. スキップ条件に該当する場合は `git commit "$@"` を実行して終了
-3. `config.js` で設定を解決する（環境変数 → `.glerc.json` → デフォルト値）
+3. `config.js` で設定を解決する（環境変数 → `~/.gle/glerc.json` / `~/.gle/prompt.md` → デフォルト値）
 4. Provider を初期化・検証する
 5. `git diff --cached --find-renames --stat` で diff サマリーを取得
 6. `git diff --cached --find-renames` でロックファイルを除外した diff 本文を取得（`maxDiffChars` 文字に切り詰め）
@@ -486,7 +492,7 @@ Gemfile.lock
 
 **diff 文字数制限**:
 
-diff 本文は `.glerc.json` の `maxDiffChars`（デフォルト 8000 文字）で切り詰める。超過した場合はその旨をプロンプトに明記する。
+diff 本文は `~/.gle/glerc.json` の `maxDiffChars`（デフォルト 8000 文字）で切り詰める。超過した場合はその旨をプロンプトに明記する。
 
 ---
 
@@ -494,7 +500,7 @@ diff 本文は `.glerc.json` の `maxDiffChars`（デフォルト 8000 文字）
 
 ### 7.1 Provider インターフェース（BaseProvider）
 
-全プロバイダーは `BaseProvider` を継承し、以下のメソッドを実装する。プロンプトは `BaseProvider` で定義し、各 Provider 実装は共通プロンプトを使用する（`.glerc.json` の `prompt` で上書き可能）。
+全プロバイダーは `BaseProvider` を継承し、以下のメソッドを実装する。プロンプトは `BaseProvider` で定義し、各 Provider 実装は共通プロンプトを使用する（`~/.gle/glerc.json` の `prompt` または `~/.gle/prompt.md` で上書き可能）。
 
 ```javascript
 class BaseProvider {
@@ -513,7 +519,7 @@ class BaseProvider {
 
   /**
    * コミットメッセージ生成用プロンプトを組み立てる
-   * .glerc.json の prompt が設定されている場合はそちらを使用する
+   * ~/.gle/glerc.json の prompt または ~/.gle/prompt.md が設定されている場合はそちらを使用する
    * @param {Object} params
    * @param {string} params.contextMd
    * @param {string} params.diffStat
@@ -564,12 +570,12 @@ class BaseProvider {
 `providers/index.js` のファクトリが以下の優先順位で Provider を決定する:
 
 1. 環境変数 `GLE_PROVIDER`
-2. `.glerc.json` の `provider` フィールド
+2. `~/.gle/glerc.json` の `provider` フィールド
 3. デフォルト: `gemini`
 
 ### 7.3 Gemini Provider
 
-**モデルデフォルト**: `gemini-2.0-flash`（`.glerc.json` の `model` で上書き可）
+**モデルデフォルト**: `gemini-2.5-flash`（`~/.gle/glerc.json` の `model` で上書き可）
 
 **環境変数**: `GLE_GEMINI_API_KEY`
 
@@ -596,7 +602,7 @@ POST https://generativelanguage.googleapis.com/v1beta/models/<model>:generateCon
 
 ### 7.4 OpenAI Provider
 
-**モデルデフォルト**: `gpt-4o`（`.glerc.json` の `model` で上書き可）
+**モデルデフォルト**: `gpt-4o`（`~/.gle/glerc.json` の `model` で上書き可）
 
 **環境変数**: `GLE_OPENAI_API_KEY`
 
@@ -621,13 +627,13 @@ POST https://generativelanguage.googleapis.com/v1beta/models/<model>:generateCon
 
 **環境変数**: `GLE_LITELLM_API_KEY` / `GLE_LITELLM_BASE_URL` / `GLE_LITELLM_MODEL`
 
-**モデル**: `GLE_LITELLM_MODEL` または `.glerc.json` の `model`（必須。デフォルトなし）
+**モデル**: `GLE_LITELLM_MODEL` または `~/.gle/glerc.json` の `model`（必須。デフォルトなし）
 
 **エンドポイント**: `${GLE_LITELLM_BASE_URL}/chat/completions`（デフォルト: `https://api.litellm.ai/v1/chat/completions`）
 
 OpenAI 互換フォーマットで送受信する。ローカル LLM（Ollama、LM Studio）も `GLE_LITELLM_BASE_URL` で対応。
 
-**validate()**: `GLE_LITELLM_MODEL` または `.glerc.json` の `model` が未設定の場合は false を返す。
+**validate()**: `GLE_LITELLM_MODEL` または `~/.gle/glerc.json` の `model` が未設定の場合は false を返す。
 
 ---
 
@@ -662,9 +668,12 @@ git hook:
 
 設定:
   provider:           gemini  (環境変数)
-  model:              gemini-2.0-flash  (デフォルト)
+  model:              gemini-2.5-flash  (デフォルト)
   maxDiffChars:       8000  (デフォルト)
   language:           auto  (デフォルト)
+  prompt:             default
+  global config:      ~/.gle/glerc.json
+  global prompt:      ~/.gle/prompt.md
 
 環境変数:
   ✓ GLE_PROVIDER           gemini
@@ -688,11 +697,12 @@ git hook:
 └── settings.json.gle-backup   # 変更前のバックアップ
 
 ~/.gle/
+├── glerc.json                  # ユーザー単位の設定（省略可）
+├── prompt.md                   # ユーザー単位のカスタムプロンプト（省略可）
 └── hooks/
     └── post-commit             # context clear hook（実行権限付き）
 
 <project>/
-├── .glerc.json                 # プロジェクト設定（省略可）
 └── .git/
     └── GLE_COMMIT_CONTEXT.md   # コミットごとにリセットされるコンテキスト
 ```
@@ -702,7 +712,7 @@ git hook:
 ```json
 {
   "name": "ctx-gleaner",
-  "version": "1.0.0",
+  "version": "0.3.0",
   "bin": {
     "gle": "./bin/gle.js"
   },
@@ -760,7 +770,7 @@ Husky 以外のツールが `core.hooksPath` を設定している場合、設�
 ## 11. セキュリティ
 
 - API キーはファイルに書き込まない。環境変数のみで参照する。
-- `.glerc.json` には API キーを記載しない。
+- `~/.gle/glerc.json` には API キーを記載しない。
 - `.git/GLE_COMMIT_CONTEXT.md` は `.git/` 直下のためリポジトリにプッシュされない。
 - `gle commit` は API キーが未設定の場合は API コールを行わない。
 - hook スクリプトは stdin の JSON のみを信頼する。

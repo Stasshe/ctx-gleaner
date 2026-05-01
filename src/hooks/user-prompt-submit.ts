@@ -14,12 +14,9 @@ async function readStdin(): Promise<string> {
   return Buffer.concat(chunks).toString("utf8");
 }
 
-async function main(): Promise<void> {
-  const raw = await readStdin();
-  if (!raw.trim()) {
-    return;
-  }
-  const payload = JSON.parse(raw) as UserPromptPayload;
+export async function handleUserPromptSubmitPayload(
+  payload: UserPromptPayload,
+): Promise<void> {
   if (!payload.cwd || !payload.prompt) {
     return;
   }
@@ -28,6 +25,14 @@ async function main(): Promise<void> {
   }
   const contextPath = await getContextFilePath(payload.cwd);
   await appendPromptContext(contextPath, payload.prompt);
+}
+
+async function main(): Promise<void> {
+  const raw = await readStdin();
+  if (!raw.trim()) {
+    return;
+  }
+  await handleUserPromptSubmitPayload(JSON.parse(raw) as UserPromptPayload);
 }
 
 main().catch((error) => {
