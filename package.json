@@ -1,6 +1,6 @@
 {
   "name": "ctx-gleaner",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "type": "module",
   "description": "Context-aware commit message generator for Claude Code",
   "main": "dist/index.js",
