@@ -1,6 +1,5 @@
 import { chmod, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { GLE_MANAGED_COMMENT } from "../constants.js";
 import { resolveConfig } from "../config.js";
 import { getCoreHooksPath, getGitRoot, runGit, setCoreHooksPath } from "../git.js";
 import {
@@ -9,28 +8,11 @@ import {
   getDefaultHooksDir,
   getDistHookPath,
 } from "../paths.js";
-
-interface ClaudeSettings {
-  hooks?: Record<
-    string,
-    Array<{
-      hooks?: Array<Record<string, unknown>>;
-    }>
-  >;
-  [key: string]: unknown;
-}
-
-function buildClaudeHookEntry(command: string, asyncFlag = false) {
-  return {
-    hooks: [
-      {
-        type: "command",
-        command,
-        ...(asyncFlag ? { async: true } : {}),
-      },
-    ],
-  };
-}
+import {
+  type ClaudeSettings,
+  mergeClaudeHook,
+  upsertPostCommitScript,
+} from "./install-shared.js";
 
 async function ensureClaudeInstalled(): Promise<void> {
   try {
@@ -67,31 +49,6 @@ async function loadSettings(path: string): Promise<ClaudeSettings> {
   }
 }
 
-function mergeHook(
-  settings: ClaudeSettings,
-  hookName: "UserPromptSubmit" | "Stop",
-  command: string,
-  asyncFlag = false,
-): boolean {
-  const existing = settings.hooks?.[hookName] ?? [];
-  const alreadyRegistered = existing.some((group) =>
-    (group.hooks ?? []).some(
-      (hook) =>
-        hook.type === "command" &&
-        hook.command === command &&
-        (asyncFlag ? hook.async === true : true),
-    ),
-  );
-
-  if (alreadyRegistered) {
-    return false;
-  }
-
-  settings.hooks ??= {};
-  settings.hooks[hookName] = [...existing, buildClaudeHookEntry(command, asyncFlag)];
-  return true;
-}
-
 async function installClaudeHooks(): Promise<void> {
   const settingsPath = getClaudeSettingsPath();
   const backupPath = getClaudeBackupPath();
@@ -106,17 +63,16 @@ async function installClaudeHooks(): Promise<void> {
   const userPromptCommand = `node ${getDistHookPath("user-prompt-submit")}`;
   const stopCommand = `node ${getDistHookPath("stop")}`;
 
-  mergeHook(settings, "UserPromptSubmit", userPromptCommand);
-  mergeHook(settings, "Stop", stopCommand, true);
+  mergeClaudeHook(settings, "UserPromptSubmit", userPromptCommand);
+  mergeClaudeHook(settings, "Stop", stopCommand, true);
 
   await writeFile(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
 }
 
 async function createPostCommitScript(targetPath: string): Promise<void> {
-  const content = `#!/usr/bin/env sh
-${GLE_MANAGED_COMMENT}
-node ${getDistHookPath("post-commit")}
-`;
+  const command = `node ${getDistHookPath("post-commit")}`;
+  const existing = await readFile(targetPath, "utf8").catch(() => "");
+  const content = upsertPostCommitScript(existing, command);
   await mkdir(dirname(targetPath), { recursive: true });
   await writeFile(targetPath, content, "utf8");
   await chmod(targetPath, 0o755);
@@ -126,13 +82,9 @@ async function installHuskyPostCommit(projectRoot: string): Promise<string> {
   const huskyPath = join(projectRoot, ".husky", "post-commit");
   const existing = await readFile(huskyPath, "utf8").catch(() => "");
   const command = `node ${getDistHookPath("post-commit")}`;
-  if (!existing.includes(command)) {
-    const nextContent = existing
-      ? `${existing.trimEnd()}\n${GLE_MANAGED_COMMENT}\n${command}\n`
-      : `#!/usr/bin/env sh\n${GLE_MANAGED_COMMENT}\n${command}\n`;
-    await writeFile(huskyPath, nextContent, "utf8");
-    await chmod(huskyPath, 0o755);
-  }
+  const nextContent = upsertPostCommitScript(existing, command);
+  await writeFile(huskyPath, nextContent, "utf8");
+  await chmod(huskyPath, 0o755);
   return huskyPath;
 }
 

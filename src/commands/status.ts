@@ -1,9 +1,14 @@
-import { stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { resolveConfig } from "../config.js";
 import { countContextEntries, readContextFile } from "../context.js";
 import { getCoreHooksPath, getContextFilePath } from "../git.js";
-import { getClaudeSettingsPath, getDefaultHooksDir } from "../paths.js";
+import {
+  getClaudeSettingsPath,
+  getDefaultHooksDir,
+  getDistHookPath,
+} from "../paths.js";
+import { type ClaudeSettings, hasClaudeHook } from "./install-shared.js";
 
 async function exists(path: string): Promise<boolean> {
   return stat(path)
@@ -14,8 +19,14 @@ async function exists(path: string): Promise<boolean> {
 export async function statusCommand(cwd: string): Promise<number> {
   const config = await resolveConfig(cwd);
   const settingsPath = getClaudeSettingsPath();
+  const settings = await readFile(settingsPath, "utf8")
+    .then((raw) => JSON.parse(raw) as ClaudeSettings)
+    .catch(() => ({} as ClaudeSettings));
+  const userPromptCommand = `node ${getDistHookPath("user-prompt-submit")}`;
+  const stopCommand = `node ${getDistHookPath("stop")}`;
   const hookPath = (await getCoreHooksPath()) ?? getDefaultHooksDir();
   const postCommitPath = join(hookPath, "post-commit");
+  const postCommitContent = await readFile(postCommitPath, "utf8").catch(() => "");
   const contextPath = await getContextFilePath(cwd).catch(() => null);
   const contextContent = contextPath ? await readContextFile(contextPath) : "";
   const contextEntries = contextContent ? countContextEntries(contextContent) : 0;
@@ -24,14 +35,19 @@ export async function statusCommand(cwd: string): Promise<number> {
   console.log("");
   console.log("Claude Code hooks:");
   console.log(
-    `  ${await exists(settingsPath) ? "✓" : "✗"} settings.json        ${settingsPath}`,
+    `  ${hasClaudeHook(settings, "UserPromptSubmit", userPromptCommand) ? "✓" : "✗"} UserPromptSubmit  ${settingsPath}`,
+  );
+  console.log(
+    `  ${hasClaudeHook(settings, "Stop", stopCommand, true) ? "✓" : "✗"} Stop              ${settingsPath}`,
   );
   console.log("");
   console.log("git hook:");
   console.log(
-    `  ${await exists(postCommitPath) ? "✓" : "✗"} post-commit        ${postCommitPath}`,
+    `  ${postCommitContent.includes(`node ${getDistHookPath("post-commit")}`) ? "✓" : "✗"} post-commit       ${postCommitPath}`,
   );
-  console.log(`  ${hookPath ? "✓" : "✗"} core.hooksPath    ${hookPath}`);
+  console.log(
+    `  ${await exists(postCommitPath) || hookPath ? "✓" : "✗"} core.hooksPath    ${hookPath}`,
+  );
   console.log("");
   console.log("設定:");
   console.log(`  provider:           ${config.provider}  (${config.sources.provider})`);

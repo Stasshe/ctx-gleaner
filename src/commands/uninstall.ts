@@ -1,6 +1,5 @@
 import { rm, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { GLE_MANAGED_COMMENT } from "../constants.js";
 import {
   getCoreHooksPath,
   getGitRoot,
@@ -12,30 +11,11 @@ import {
   getDefaultHooksDir,
   getDistHookPath,
 } from "../paths.js";
-
-interface ClaudeSettings {
-  hooks?: Record<string, Array<{ hooks?: Array<Record<string, unknown>> }>>;
-  [key: string]: unknown;
-}
-
-function removeClaudeCommand(
-  settings: ClaudeSettings,
-  hookName: "UserPromptSubmit" | "Stop",
-  command: string,
-): void {
-  const groups = settings.hooks?.[hookName];
-  if (!groups) {
-    return;
-  }
-  settings.hooks![hookName] = groups
-    .map((group) => ({
-      ...group,
-      hooks: (group.hooks ?? []).filter(
-        (hook) => !(hook.type === "command" && hook.command === command),
-      ),
-    }))
-    .filter((group) => (group.hooks?.length ?? 0) > 0);
-}
+import {
+  type ClaudeSettings,
+  removeClaudeHook,
+  removeManagedPostCommitBlock,
+} from "./install-shared.js";
 
 async function uninstallClaudeHooks(): Promise<void> {
   const settingsPath = getClaudeSettingsPath();
@@ -45,35 +25,14 @@ async function uninstallClaudeHooks(): Promise<void> {
   }
 
   const settings = JSON.parse(raw) as ClaudeSettings;
-  removeClaudeCommand(
+  removeClaudeHook(
     settings,
     "UserPromptSubmit",
     `node ${getDistHookPath("user-prompt-submit")}`,
   );
-  removeClaudeCommand(settings, "Stop", `node ${getDistHookPath("stop")}`);
+  removeClaudeHook(settings, "Stop", `node ${getDistHookPath("stop")}`);
 
   await writeFile(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
-}
-
-function removeManagedLines(content: string): string {
-  const command = `node ${getDistHookPath("post-commit")}`;
-  const lines = content.split("\n");
-  const filtered: string[] = [];
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (line === undefined) {
-      continue;
-    }
-    if (line === GLE_MANAGED_COMMENT && lines[index + 1] === command) {
-      index += 1;
-      continue;
-    }
-    if (line === command) {
-      continue;
-    }
-    filtered.push(line);
-  }
-  return filtered.join("\n").trimEnd();
 }
 
 async function cleanupPostCommit(path: string): Promise<void> {
@@ -81,12 +40,32 @@ async function cleanupPostCommit(path: string): Promise<void> {
   if (existing === null) {
     return;
   }
-  const next = removeManagedLines(existing);
+  const next = removeManagedPostCommitBlock(
+    existing,
+    `node ${getDistHookPath("post-commit")}`,
+  );
   if (!next || next === "#!/usr/bin/env sh") {
     await rm(path, { force: true });
     return;
   }
   await writeFile(path, `${next}\n`, "utf8");
+}
+
+async function promptRestoreBackup(backupPath: string): Promise<boolean> {
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    console.log(`バックアップが残っています: ${backupPath}`);
+    return false;
+  }
+
+  process.stdout.write(`バックアップを復元しますか? [y/N] `);
+  const answer = await new Promise<string>((resolve) => {
+    process.stdin.resume();
+    process.stdin.once("data", (chunk) => {
+      process.stdin.pause();
+      resolve(String(chunk).trim().toLowerCase());
+    });
+  });
+  return answer === "y" || answer === "yes";
 }
 
 export async function uninstallCommand(cwd: string): Promise<number> {
@@ -111,7 +90,12 @@ export async function uninstallCommand(cwd: string): Promise<number> {
   const backupPath = getClaudeBackupPath();
   const backup = await readFile(backupPath, "utf8").catch(() => null);
   if (backup !== null) {
-    console.log(`バックアップが残っています: ${backupPath}`);
+    if (await promptRestoreBackup(backupPath)) {
+      await writeFile(getClaudeSettingsPath(), backup, "utf8");
+      console.log(`バックアップを復元しました: ${backupPath}`);
+    } else {
+      console.log(`バックアップが残っています: ${backupPath}`);
+    }
   }
 
   console.log("gle の設定を削除しました。");
