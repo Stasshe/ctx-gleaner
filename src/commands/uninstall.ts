@@ -19,6 +19,7 @@ import {
   removeAnyManagedPostCommitBlock,
   removeManagedPostCommitBlock,
 } from "./install-shared.js";
+import { print, warn } from "../output.js";
 
 async function uninstallClaudeHooks(): Promise<void> {
   const settingsPath = getClaudeSettingsPath();
@@ -60,7 +61,7 @@ async function cleanupPostCommit(path: string): Promise<void> {
 
 async function promptRestoreBackup(backupPath: string): Promise<boolean> {
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    console.log(`バックアップが残っています: ${backupPath}`);
+    print(`バックアップが残っています: ${backupPath}`);
     return false;
   }
 
@@ -90,7 +91,7 @@ export async function uninstallCommand(cwd: string): Promise<number> {
     if (hooksPath === getDefaultHooksDir()) {
       await unsetCoreHooksPath().catch(() => undefined);
     } else {
-      console.warn(`⚠ core.hooksPath は保持しました: ${hooksPath}`);
+      warn(`⚠ core.hooksPath は保持しました: ${hooksPath}`);
     }
   }
 
@@ -99,12 +100,12 @@ export async function uninstallCommand(cwd: string): Promise<number> {
   if (backup !== null) {
     if (await promptRestoreBackup(backupPath)) {
       await writeFile(getClaudeSettingsPath(), backup, "utf8");
-      console.log(`バックアップを復元しました: ${backupPath}`);
+      print(`バックアップを復元しました: ${backupPath}`);
     } else {
-      console.log(`バックアップが残っています: ${backupPath}`);
+      print(`バックアップが残っています: ${backupPath}`);
     }
   }
 
-  console.log("gle の設定を削除しました。");
+  print("gle の設定を削除しました。");
   return 0;
 }

@@ -6,9 +6,11 @@ import { statusCommand } from "./commands/status.js";
 import { uninstallCommand } from "./commands/uninstall.js";
 import { runStopHook } from "./hooks/stop.js";
 import { runUserPromptSubmitHook } from "./hooks/user-prompt-submit.js";
+import { print, printError } from "./output.js";
+import { getPackageVersion } from "./version.js";
 
 function printHelp(): void {
-  console.log(`gle
+  print(`gle
 
 Usage:
   gle install
@@ -49,7 +51,7 @@ async function main(): Promise<number> {
       return 0;
     case "--version":
     case "-v":
-      console.log("0.3.2");
+      print(await getPackageVersion());
       return 0;
     case "--help":
     case "-h":
@@ -57,7 +59,7 @@ async function main(): Promise<number> {
       printHelp();
       return 0;
     default:
-      console.error(`Unknown command: ${command}`);
+      printError(`Unknown command: ${command}`);
       printHelp();
       return 1;
   }
@@ -68,6 +70,6 @@ main()
     process.exitCode = code;
   })
   .catch((error) => {
-    console.error((error as Error).message);
+    printError((error as Error).message);
     process.exitCode = 1;
   });

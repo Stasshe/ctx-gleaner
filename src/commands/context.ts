@@ -4,6 +4,7 @@ import {
   readContextFile,
   resetContextFile,
 } from "../context.js";
+import { print } from "../output.js";
 
 export async function contextCommand(
   cwd: string,
@@ -12,13 +13,13 @@ export async function contextCommand(
   const path = await getContextFilePath(cwd);
   if (args.includes("--clear")) {
     await resetContextFile(path);
-    console.log("context をリセットしました。");
+    print("context をリセットしました。");
     return 0;
   }
 
   const content = await readContextFile(path);
   if (!content || isContextEffectivelyEmpty(content)) {
-    console.log("(empty)");
+    print("(empty)");
     return 0;
   }
 

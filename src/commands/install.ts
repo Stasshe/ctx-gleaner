@@ -16,6 +16,7 @@ import {
   removeClaudeHookBySubcommand,
   upsertPostCommitScript,
 } from "./install-shared.js";
+import { print, warn } from "../output.js";
 
 function quoteShellArg(value: string): string {
   return `'${value.replaceAll("'", "'\\''")}'`;
@@ -173,7 +174,7 @@ function printApiKeyWarning(provider: string): void {
   } as const;
   const envName = envMap[provider as keyof typeof envMap];
   if (envName && !process.env[envName]) {
-    console.warn(`⚠ ${envName} が設定されていません。`);
+    warn(`⚠ ${envName} が設定されていません。`);
   }
 }
 
@@ -189,7 +190,7 @@ async function installGitHook(cwd: string): Promise<string> {
   }
 
   if (await detectLegacyHusky(projectRoot)) {
-    console.warn(
+    warn(
       "⚠ Husky v8 が検出されました。gle は Husky v9+ のみ自動対応します。",
     );
   }
@@ -223,14 +224,14 @@ export async function installCommand(cwd: string): Promise<number> {
   await ensureUserConfigFiles();
   await installClaudeHooks();
 
-  console.log(`✓ Claude Code hooks を登録しました (${getClaudeSettingsPath()})`);
-  console.log(`✓ ユーザー設定を確認しました (${getGlobalConfigPath()}, ${getGlobalPromptPath()})`);
-  console.log("");
-  console.log("gle のユーザーセットアップが完了しました。");
-  console.log("次回 Claude Code セッションから自動でコンテキストが収集されます。");
-  console.log("repo ごとの post-commit cleanup が必要な場合は、その repo で gle prepare を実行してください。");
-  console.log("");
-  console.log("アンインストール: gle uninstall");
+  print(`✓ Claude Code hooks を登録しました (${getClaudeSettingsPath()})`);
+  print(`✓ ユーザー設定を確認しました (${getGlobalConfigPath()}, ${getGlobalPromptPath()})`);
+  print();
+  print("gle のユーザーセットアップが完了しました。");
+  print("次回 Claude Code セッションから自動でコンテキストが収集されます。");
+  print("repo ごとの post-commit cleanup が必要な場合は、その repo で gle prepare を実行してください。");
+  print();
+  print("アンインストール: gle uninstall");
 
   return 0;
 }
@@ -240,6 +241,6 @@ export async function prepareCommand(cwd: string): Promise<number> {
   await ensureClaudeInstalled();
   const hookPathDescription = await installGitHook(cwd);
 
-  console.log(`✓ git post-commit hook を設定しました (${hookPathDescription})`);
+  print(`✓ git post-commit hook を設定しました (${hookPathDescription})`);
   return 0;
 }

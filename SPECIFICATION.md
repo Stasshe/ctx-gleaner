@@ -718,7 +718,6 @@ git hook:
 ```json
 {
   "name": "ctx-gleaner",
-  "version": "0.3.2",
   "bin": {
     "gle": "./bin/gle.js"
   },

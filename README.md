@@ -267,7 +267,7 @@ gle status
 
 **Merge commits and amend.** `gle commit --amend` and merge commits skip generation and fall back to Git behavior.
 
-**Claude Code only.** v0.3 supports Claude Code hooks. Codex CLI and GitHub Copilot are outside this version.
+**Claude Code only.** ctx-gleaner currently supports Claude Code hooks. Codex CLI and GitHub Copilot are outside the current scope.
 
 ---
 

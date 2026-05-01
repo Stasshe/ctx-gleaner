@@ -1,6 +1,7 @@
 import { appendPromptContext } from "../context.js";
 import { getContextFilePath, isGitRepository } from "../git.js";
 import { pathToFileURL } from "node:url";
+import { printError } from "../output.js";
 
 interface UserPromptPayload {
   cwd?: string;
@@ -38,7 +39,7 @@ export async function runUserPromptSubmitHook(): Promise<void> {
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   runUserPromptSubmitHook().catch((error) => {
-    console.error(`gle hook error: ${(error as Error).message}`);
+    printError(`gle hook error: ${(error as Error).message}`);
     process.exit(0);
   });
 }

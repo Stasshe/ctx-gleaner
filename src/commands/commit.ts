@@ -16,6 +16,7 @@ import {
 } from "../git.js";
 import { createProvider } from "../providers/index.js";
 import { createTempCommitFile } from "../utils.js";
+import { printError } from "../output.js";
 
 function hasFlag(args: string[], ...targets: string[]): boolean {
   return args.some((arg, index) => {
@@ -81,7 +82,7 @@ export async function postCommitCommand(cwd: string): Promise<number> {
   const contextPath = await getContextFilePath(cwd).catch(() => null);
   if (contextPath) {
     await resetContextFile(contextPath).catch((error) => {
-      console.error(`gle: failed to reset context: ${(error as Error).message}`);
+      printError(`gle: failed to reset context: ${(error as Error).message}`);
     });
   }
   return 0;
@@ -105,7 +106,7 @@ export async function commitCommand(cwd: string, rawArgs: string[]): Promise<num
   const config = await resolveConfig(cwd);
   const provider = createProvider(config);
   if (!provider.validate()) {
-    console.error("gle: provider is not configured. Falling back to git commit.");
+    printError("gle: provider is not configured. Falling back to git commit.");
     return runGitCommit(cwd, rawArgs);
   }
 
@@ -140,8 +141,8 @@ export async function commitCommand(cwd: string, rawArgs: string[]): Promise<num
       await tempFile.cleanup();
     }
   } catch (error) {
-    console.error(`gle: ${(error as Error).message}`);
-    console.error("gle: falling back to plain git commit.");
+    printError(`gle: ${(error as Error).message}`);
+    printError("gle: falling back to plain git commit.");
     return runGitCommit(cwd, rawArgs);
   }
 }

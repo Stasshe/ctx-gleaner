@@ -22,3 +22,13 @@ export const LOCKFILE_PATTERNS = [
 
 export const GLE_MANAGED_COMMENT =
   "# gle: clear collected context after successful commit";
+
+export const GLE_ENV_VARS = [
+  "GLE_PROVIDER",
+  "GLE_HOME",
+  "GLE_GEMINI_API_KEY",
+  "GLE_OPENAI_API_KEY",
+  "GLE_LITELLM_API_KEY",
+  "GLE_LITELLM_BASE_URL",
+  "GLE_LITELLM_MODEL",
+] as const;

@@ -1,6 +1,7 @@
 import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { resolveConfig } from "../config.js";
+import { GLE_ENV_VARS } from "../constants.js";
 import { countContextEntries, readContextFile } from "../context.js";
 import { getCoreHooksPath, getContextFilePath } from "../git.js";
 import {
@@ -10,6 +11,7 @@ import {
   getGlobalPromptPath,
 } from "../paths.js";
 import { type ClaudeSettings, hasClaudeHookSubcommand } from "./install-shared.js";
+import { print } from "../output.js";
 
 async function exists(path: string): Promise<boolean> {
   return stat(path)
@@ -33,54 +35,49 @@ export async function statusCommand(cwd: string): Promise<number> {
   const contextContent = contextPath ? await readContextFile(contextPath) : "";
   const contextEntries = contextContent ? countContextEntries(contextContent) : 0;
 
-  console.log("gle status");
-  console.log("");
-  console.log("Claude Code hooks:");
-  console.log(
+  print("gle status");
+  print();
+  print("Claude Code hooks:");
+  print(
     `  ${hasClaudeHookSubcommand(settings, "UserPromptSubmit", "_user-prompt-submit") ? "✓" : "✗"} UserPromptSubmit  ${settingsPath}`,
   );
-  console.log(
+  print(
     `  ${hasClaudeHookSubcommand(settings, "Stop", "_stop") ? "✓" : "✗"} Stop              ${settingsPath}`,
   );
-  console.log("");
-  console.log("git hook:");
-  console.log(
+  print();
+  print("git hook:");
+  print(
     `  ${postCommitContent.includes(" _post-commit") ? "✓" : "✗"} post-commit       ${postCommitPath}`,
   );
-  console.log(
+  print(
     `  ${configuredHooksPath ? "✓" : "✗"} core.hooksPath    ${hookPath}`,
   );
-  console.log("");
-  console.log("設定:");
-  console.log(`  provider:           ${config.provider}  (${config.sources.provider})`);
-  console.log(`  model:              ${config.model ?? "(unset)"}  (${config.sources.model})`);
-  console.log(
+  print();
+  print("設定:");
+  print(`  provider:           ${config.provider}  (${config.sources.provider})`);
+  print(`  model:              ${config.model ?? "(unset)"}  (${config.sources.model})`);
+  print(
     `  maxDiffChars:       ${config.maxDiffChars}  (${config.sources.maxDiffChars})`,
   );
-  console.log(`  language:           ${config.language}  (${config.sources.language})`);
-  console.log(`  prompt:             ${config.sources.prompt}`);
-  console.log(`  global config:      ${await exists(globalConfigPath) ? globalConfigPath : "(none)"}`);
-  console.log(`  global prompt:      ${await exists(globalPromptPath) ? globalPromptPath : "(none)"}`);
-  console.log("");
-  console.log("環境変数:");
-  for (const name of [
-    "GLE_PROVIDER",
-    "GLE_GEMINI_API_KEY",
-    "GLE_OPENAI_API_KEY",
-    "GLE_LITELLM_API_KEY",
-  ]) {
+  print(`  language:           ${config.language}  (${config.sources.language})`);
+  print(`  prompt:             ${config.sources.prompt}`);
+  print(`  global config:      ${await exists(globalConfigPath) ? globalConfigPath : "(none)"}`);
+  print(`  global prompt:      ${await exists(globalPromptPath) ? globalPromptPath : "(none)"}`);
+  print();
+  print("環境変数:");
+  for (const name of GLE_ENV_VARS) {
     const value = process.env[name];
-    console.log(`  ${value ? "✓" : "✗"} ${name.padEnd(22)} ${value ? "設定済み" : "未設定"}`);
+    print(`  ${value ? "✓" : "✗"} ${name.padEnd(22)} ${value ? "設定済み" : "未設定"}`);
   }
-  console.log("");
-  console.log("現在のコンテキスト:");
+  print();
+  print("現在のコンテキスト:");
   if (contextPath) {
-    console.log(`  プロジェクト: ${cwd}`);
-    console.log(
+    print(`  プロジェクト: ${cwd}`);
+    print(
       `  ${contextEntries > 0 ? "✓" : "✗"} GLE_COMMIT_CONTEXT.md  ${contextEntries}件のエントリ`,
     );
   } else {
-    console.log("  git リポジトリ外です");
+    print("  git リポジトリ外です");
   }
 
   return 0;

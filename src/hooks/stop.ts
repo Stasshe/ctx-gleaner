@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { appendStopContext } from "../context.js";
 import { getContextFilePath, isGitRepository } from "../git.js";
+import { printError } from "../output.js";
 import { extractAssistantText, truncateTail } from "../transcript.js";
 
 interface StopPayload {
@@ -47,7 +48,7 @@ export async function runStopHook(): Promise<void> {
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   runStopHook().catch((error) => {
-    console.error(`gle hook error: ${(error as Error).message}`);
+    printError(`gle hook error: ${(error as Error).message}`);
     process.exit(0);
   });
 }
