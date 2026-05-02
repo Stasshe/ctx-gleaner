@@ -36,4 +36,5 @@ yarn-error.log*
 
 tests/temp/*
 
+.gle/
 ctx-gleaner-*.tgz

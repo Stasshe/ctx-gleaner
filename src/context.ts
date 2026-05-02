@@ -15,7 +15,7 @@ function nowIso(): string {
   );
 }
 
-async function ensureGitignoreEntry(gitRoot: string): Promise<void> {
+export async function ensureGleGitignoreEntry(gitRoot: string): Promise<void> {
   const gitignorePath = join(gitRoot, ".gitignore");
   let content = "";
   try {
@@ -24,7 +24,7 @@ async function ensureGitignoreEntry(gitRoot: string): Promise<void> {
     // file doesn't exist yet
   }
   const lines = content.split("\n");
-  if (lines.some((line) => line.trim() === ".gle/")) {
+  if (lines.some((line) => line.trim() === ".gle/" || line.trim() === ".gle")) {
     return;
   }
   const entry = content === "" || content.endsWith("\n") ? ".gle/\n" : "\n.gle/\n";
@@ -35,7 +35,7 @@ export async function ensureContextFile(path: string): Promise<void> {
   const gleDir = dirname(path);
   const gitRoot = dirname(gleDir);
   await mkdir(gleDir, { recursive: true });
-  await ensureGitignoreEntry(gitRoot);
+  await ensureGleGitignoreEntry(gitRoot);
   try {
     await readFile(path, "utf8");
   } catch {

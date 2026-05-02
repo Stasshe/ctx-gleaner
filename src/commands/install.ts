@@ -1,7 +1,7 @@
 import { chmod, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { resolveConfig } from "../config.js";
-import { ensureContextFile } from "../context.js";
+import { ensureContextFile, ensureGleGitignoreEntry } from "../context.js";
 import {
   getContextFilePath,
   getCoreHooksPath,
@@ -247,8 +247,10 @@ export async function installCommand(cwd: string): Promise<number> {
 export async function prepareCommand(cwd: string): Promise<number> {
   getGlobalCliPath();
   await ensureGitInstalled();
+  const projectRoot = await getGitRoot(cwd);
   const hookPathDescription = await installGitHook(cwd);
   const contextPath = await getContextFilePath(cwd);
+  await ensureGleGitignoreEntry(projectRoot);
   await ensureContextFile(contextPath);
 
   print(`✓ git post-commit hook を設定しました (${hookPathDescription})`);
