@@ -5,6 +5,7 @@ import { contextCommand } from "./commands/context.js";
 import { installCommand, prepareCommand } from "./commands/install.js";
 import { langCommand } from "./commands/lang.js";
 import { statusCommand } from "./commands/status.js";
+import { switchCommand } from "./commands/switch.js";
 import { uninstallCommand } from "./commands/uninstall.js";
 import { runStopHook } from "./hooks/stop.js";
 import { runUserPromptSubmitHook } from "./hooks/user-prompt-submit.js";
@@ -24,6 +25,7 @@ Usage:
   gle status
   gle context [--clear]
   gle lang [auto|en|ja|zh|ko|es]
+  gle switch [api|local|openai|gemini|claude|cmd] [model-or-command]
   gle --help
   gle --version`);
 }
@@ -49,6 +51,8 @@ async function main(): Promise<number> {
       return contextCommand(cwd, args);
     case "lang":
       return langCommand(args);
+    case "switch":
+      return switchCommand(args);
     case "_post-commit":
       return postCommitCommand(cwd);
     case "_user-prompt-submit":

@@ -29,7 +29,7 @@ export class GeminiProvider extends BaseProvider {
             contents: [{ parts: [{ text: await this.getPrompt(params) }] }],
             generationConfig: {
               temperature: 0.2,
-              maxOutputTokens: 512,
+              maxOutputTokens: this.config.maxOutputTokens,
             },
           }),
           signal: controller.signal,

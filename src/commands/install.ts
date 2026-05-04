@@ -48,22 +48,20 @@ function buildCliCommand(subcommand: string): string {
 }
 
 const DEFAULT_GLOBAL_CONFIG = `{
-  // Generation mode: "api" (default) | "cmd"
-  // "api"  — use a cloud API provider
-  // "cmd"  — pipe the prompt to a custom command via stdin; read commit message from stdout
-  "mode": "api",
-
-  // ── api mode ────────────────────────────────────────────────────────────────
-  // provider: "api" | "openai" | "gemini" (default) | "claude"
+  // provider: "api" | "openai" | "gemini" (default) | "claude" | "cmd"
   "provider": "gemini",
   // model name (provider-specific); api requires this or GLE_API_MODEL
   "model": "gemini-2.5-flash",
+  // api provider base URL, e.g. "http://localhost:11434/v1" for Ollama
+  // "apiBaseUrl": "",
   // max characters from the diff sent to the prompt
   "maxDiffChars": 8000,
+  // max output tokens for the generated commit message
+  "maxOutputTokens": 2048,
   // commit message language: "auto" | "en" | "ja" | "zh" | "ko" | "es"
   "language": "auto",
 
-  // ── cmd mode ─────────────────────────────────────────────────────────────────
+  // ── provider: "cmd" ─────────────────────────────────────────────────────────
   // shell command to run; prompt → stdin, commit message ← stdout
   // examples:
   //   "cmd": "ollama run llama3.2"

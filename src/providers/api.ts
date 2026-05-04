@@ -7,6 +7,7 @@ export class ApiProvider extends OpenAiCompatibleProvider {
       displayName: "API",
       apiKeyEnv: "GLE_API_KEY",
       baseUrlEnv: "GLE_API_BASE_URL",
+      useConfigBaseUrl: true,
     });
   }
 }

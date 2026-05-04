@@ -2,33 +2,36 @@ export type ProviderName =
   | "api"
   | "openai"
   | "gemini"
-  | "claude";
-export type ModeName = "api" | "cmd";
+  | "claude"
+  | "cmd";
 
 export interface GleConfigFile {
-  mode?: string;
   provider?: string;
   model?: string;
+  apiBaseUrl?: string;
   prompt?: string;
   maxDiffChars?: number;
+  maxOutputTokens?: number;
   language?: string;
   cmd?: string;
 }
 
 export interface ResolvedConfig {
-  mode: ModeName;
   provider: ProviderName;
   model: string | undefined;
+  apiBaseUrl: string | undefined;
   prompt: string | undefined;
   maxDiffChars: number;
+  maxOutputTokens: number;
   language: string;
   cmd: string | undefined;
   sources: {
-    mode: "global" | "default";
     provider: "env" | "global" | "default";
     model: "env" | "global" | "default" | "unset";
+    apiBaseUrl: "env" | "global" | "unset";
     prompt: "global" | "default";
     maxDiffChars: "global" | "default";
+    maxOutputTokens: "global" | "default";
     language: "global" | "default";
   };
 }

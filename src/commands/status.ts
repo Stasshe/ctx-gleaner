@@ -54,15 +54,22 @@ export async function statusCommand(cwd: string): Promise<number> {
   );
   print();
   print("設定:");
-  print(`  mode:               ${config.mode}  (${config.sources.mode})`);
-  if (config.mode === "cmd") {
+  print(`  provider:           ${config.provider}  (${config.sources.provider})`);
+  if (config.provider === "cmd") {
     print(`  cmd:                ${config.cmd ?? "(unset)"}`);
   } else {
-    print(`  provider:           ${config.provider}  (${config.sources.provider})`);
     print(`  model:              ${config.model ?? "(unset)"}  (${config.sources.model})`);
+    if (config.provider === "api") {
+      print(
+        `  apiBaseUrl:         ${config.apiBaseUrl ?? "(unset)"}  (${config.sources.apiBaseUrl})`,
+      );
+    }
   }
   print(
     `  maxDiffChars:       ${config.maxDiffChars}  (${config.sources.maxDiffChars})`,
+  );
+  print(
+    `  maxOutputTokens:    ${config.maxOutputTokens}  (${config.sources.maxOutputTokens})`,
   );
   print(`  language:           ${config.language}  (${config.sources.language})`);
   print(`  prompt:             ${config.sources.prompt}`);

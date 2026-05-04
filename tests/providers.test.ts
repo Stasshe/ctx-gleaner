@@ -3,17 +3,19 @@ import type { ResolvedConfig } from "../src/types.js";
 import { createProvider } from "../src/providers/index.js";
 
 const baseConfig: Omit<ResolvedConfig, "provider" | "model"> = {
-  mode: "api",
+  apiBaseUrl: undefined,
   prompt: "write a commit message",
   maxDiffChars: 8000,
+  maxOutputTokens: 2048,
   language: "auto",
   cmd: undefined,
   sources: {
-    mode: "default",
     provider: "env",
     model: "env",
+    apiBaseUrl: "unset",
     prompt: "global",
     maxDiffChars: "default",
+    maxOutputTokens: "default",
     language: "default",
   },
 };
@@ -91,4 +93,30 @@ describe("providers", () => {
     );
   });
 
+  test("local shortcut uses the same API provider shape without an API key", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: "feat: local provider" } }],
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = createProvider({
+      ...baseConfig,
+      provider: "api",
+      model: "qwen2.5-coder-12k:latest",
+      apiBaseUrl: "http://localhost:11434/v1",
+    });
+    await expect(provider.generateMessage(input)).resolves.toBe(
+      "feat: local provider",
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:11434/v1/chat/completions",
+      expect.objectContaining({
+        headers: expect.not.objectContaining({ authorization: expect.any(String) }),
+      }),
+    );
+  });
 });

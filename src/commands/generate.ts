@@ -50,7 +50,11 @@ export async function generateCommand(cwd: string): Promise<number> {
   const config = await resolveConfig(cwd);
   const provider = createProvider(config);
   if (!provider.validate()) {
-    const envKey = PROVIDER_API_KEY_ENV[config.provider] ?? "provider API key";
+    const envKey = config.provider === "api"
+      ? "GLE_API_BASE_URL and model"
+      : config.provider === "cmd"
+        ? "cmd"
+      : PROVIDER_API_KEY_ENV[config.provider] ?? "provider API key";
     printError(`gle: ${envKey} is not set.`);
     return 1;
   }

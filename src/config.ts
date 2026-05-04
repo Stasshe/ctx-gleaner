@@ -2,58 +2,15 @@ import { readFile } from "node:fs/promises";
 import {
   DEFAULT_LANGUAGE,
   DEFAULT_MAX_DIFF_CHARS,
-  DEFAULT_MODE,
   DEFAULT_MODELS,
+  DEFAULT_MAX_OUTPUT_TOKENS,
   DEFAULT_PROVIDER,
   PROVIDER_MODEL_ENV,
   SUPPORTED_PROVIDERS,
 } from "./constants.js";
-import type { GleConfigFile, ModeName, ProviderName, ResolvedConfig } from "./types.js";
-import { getGlobalConfigPath, getLegacyConfigPath, getGlobalPromptPath } from "./paths.js";
-
-function parseJsonc(text: string): unknown {
-  let result = "";
-  let inString = false;
-  let i = 0;
-  while (i < text.length) {
-    if (inString) {
-      if (text[i] === "\\") {
-        result += text[i] + (text[i + 1] ?? "");
-        i += 2;
-        continue;
-      }
-      if (text[i] === '"') inString = false;
-      result += text[i++];
-    } else {
-      if (text[i] === '"') {
-        inString = true;
-        result += text[i++];
-      } else if (text[i] === "/" && text[i + 1] === "/") {
-        while (i < text.length && text[i] !== "\n") i++;
-      } else if (text[i] === "/" && text[i + 1] === "*") {
-        i += 2;
-        while (i < text.length && !(text[i] === "*" && text[i + 1] === "/")) i++;
-        i += 2;
-      } else {
-        result += text[i++];
-      }
-    }
-  }
-  return JSON.parse(result);
-}
-
-async function readGlobalConfigFile(): Promise<GleConfigFile> {
-  for (const path of [getGlobalConfigPath(), getLegacyConfigPath()]) {
-    try {
-      const raw = await readFile(path, "utf8");
-      const parsed = parseJsonc(raw) as GleConfigFile;
-      return parsed && typeof parsed === "object" ? parsed : {};
-    } catch {
-      // try next
-    }
-  }
-  return {};
-}
+import type { ProviderName, ResolvedConfig } from "./types.js";
+import { getGlobalPromptPath } from "./paths.js";
+import { readGlobalConfigFile } from "./config-file.js";
 
 async function readGlobalPromptFile(): Promise<string | undefined> {
   try {
@@ -89,6 +46,8 @@ export async function resolveConfig(cwd: string): Promise<ResolvedConfig> {
   const providerModelEnv = PROVIDER_MODEL_ENV[provider.value];
   const envModel = providerModelEnv ? process.env[providerModelEnv] : undefined;
   const globalModel = globalConfig.model;
+  const envApiBaseUrl = process.env.GLE_API_BASE_URL;
+  const globalApiBaseUrl = globalConfig.apiBaseUrl;
 
   let model: string | undefined;
   let modelSource: ResolvedConfig["sources"]["model"] = "unset";
@@ -104,18 +63,19 @@ export async function resolveConfig(cwd: string): Promise<ResolvedConfig> {
     modelSource = "default";
   }
 
-  const modeRaw = typeof globalConfig.mode === "string" ? globalConfig.mode.trim() : "";
-  const mode: ModeName = modeRaw === "cmd" ? "cmd" : DEFAULT_MODE;
-
   return {
-    mode,
     provider: provider.value,
     model,
     prompt: globalConfig.prompt?.trim() ? globalConfig.prompt : globalPrompt,
+    apiBaseUrl: envApiBaseUrl ?? globalApiBaseUrl,
     maxDiffChars:
       typeof globalConfig.maxDiffChars === "number" && globalConfig.maxDiffChars > 0
         ? globalConfig.maxDiffChars
         : DEFAULT_MAX_DIFF_CHARS,
+    maxOutputTokens:
+      typeof globalConfig.maxOutputTokens === "number" && globalConfig.maxOutputTokens > 0
+        ? globalConfig.maxOutputTokens
+        : DEFAULT_MAX_OUTPUT_TOKENS,
     language:
       typeof globalConfig.language === "string" && globalConfig.language.trim()
         ? globalConfig.language.trim()
@@ -124,12 +84,16 @@ export async function resolveConfig(cwd: string): Promise<ResolvedConfig> {
       ? globalConfig.cmd.trim()
       : undefined,
     sources: {
-      mode: modeRaw === "cmd" || modeRaw === "api" ? "global" : "default",
       provider: provider.source,
       model: modelSource,
       prompt: globalConfig.prompt?.trim() || globalPrompt ? "global" : "default",
+      apiBaseUrl: envApiBaseUrl ? "env" : globalApiBaseUrl ? "global" : "unset",
       maxDiffChars:
         typeof globalConfig.maxDiffChars === "number" && globalConfig.maxDiffChars > 0
+          ? "global"
+          : "default",
+      maxOutputTokens:
+        typeof globalConfig.maxOutputTokens === "number" && globalConfig.maxOutputTokens > 0
           ? "global"
           : "default",
       language:

@@ -174,6 +174,7 @@ This installs hooks into:
   "provider": "gemini",
   "model": "gemini-2.5-flash",
   "maxDiffChars": 8000,
+  "maxOutputTokens": 2048,
   "language": "auto"
 }
 ```
@@ -188,10 +189,14 @@ export GLE_GEMINI_API_KEY=...
 For OpenAI-compatible APIs:
 
 ```bash
-export GLE_PROVIDER=api
-export GLE_API_BASE_URL=http://localhost:11434/v1
-export GLE_API_MODEL=llama3.2
+gle switch api llama3.2 --base-url http://localhost:11434/v1
 # Set GLE_API_KEY only when your endpoint requires a bearer token.
+```
+
+For local Ollama-compatible setups:
+
+```bash
+gle switch local qwen2.5-coder-12k:latest
 ```
 
 ---
@@ -202,6 +207,7 @@ export GLE_API_MODEL=llama3.2
 * OpenAI
 * Gemini (default)
 * Claude
+* Command (`cmd`)
 
 ---
 
@@ -214,6 +220,7 @@ export GLE_API_MODEL=llama3.2
 | `gle commit`  | Generate commit message   |
 | `gle context` | Show captured context     |
 | `gle status`  | Show configuration        |
+| `gle switch`  | Switch provider/model     |
 
 ---
 

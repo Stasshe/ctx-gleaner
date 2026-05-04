@@ -6,9 +6,10 @@ import { BaseProvider } from "./base.js";
 interface OpenAiCompatibleProviderOptions {
   displayName: string;
   apiKeyEnv?: string;
-  baseUrlEnv: string | string[];
+  baseUrlEnv: string;
   defaultBaseUrl?: string;
   requireApiKey?: boolean;
+  useConfigBaseUrl?: boolean;
 }
 
 export class OpenAiCompatibleProvider extends BaseProvider {
@@ -29,27 +30,18 @@ export class OpenAiCompatibleProvider extends BaseProvider {
   }
 
   private getBaseUrl(): string | undefined {
-    const envNames = Array.isArray(this.options.baseUrlEnv)
-      ? this.options.baseUrlEnv
-      : [this.options.baseUrlEnv];
-    for (const name of envNames) {
-      const value = process.env[name];
-      if (value) {
-        return value;
-      }
+    if (this.options.useConfigBaseUrl && this.config.apiBaseUrl) {
+      return this.config.apiBaseUrl;
     }
-    return undefined;
+    return process.env[this.options.baseUrlEnv];
   }
 
   async generateMessage(params: CommitGenerationInput): Promise<string> {
     const key = this.options.apiKeyEnv ? process.env[this.options.apiKeyEnv] : undefined;
     const baseUrl = this.getBaseUrl() ?? this.options.defaultBaseUrl;
     if ((!key && this.options.requireApiKey) || !baseUrl || !this.config.model) {
-      const baseUrlEnv = Array.isArray(this.options.baseUrlEnv)
-        ? this.options.baseUrlEnv.join("/")
-        : this.options.baseUrlEnv;
       throw new Error(
-        `${this.options.apiKeyEnv ?? "API key"}, ${baseUrlEnv}, or model is not configured`,
+        `${this.options.apiKeyEnv ?? "API key"}, ${this.options.baseUrlEnv}, or model is not configured`,
       );
     }
 
@@ -67,7 +59,7 @@ export class OpenAiCompatibleProvider extends BaseProvider {
           model: this.config.model,
           messages: [{ role: "user", content: await this.getPrompt(params) }],
           temperature: 0.2,
-          max_tokens: 512,
+          max_tokens: this.config.maxOutputTokens,
         }),
         signal: controller.signal,
       });

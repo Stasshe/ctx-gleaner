@@ -7,10 +7,9 @@ import { GeminiProvider } from "./gemini.js";
 import { OpenAiProvider } from "./openai.js";
 
 export function createProvider(config: ResolvedConfig): BaseProvider {
-  if (config.mode === "cmd") {
-    return new CmdProvider(config);
-  }
   switch (config.provider) {
+    case "cmd":
+      return new CmdProvider(config);
     case "api":
       return new ApiProvider(config);
     case "openai":

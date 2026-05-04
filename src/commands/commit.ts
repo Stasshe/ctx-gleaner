@@ -116,7 +116,11 @@ export async function commitCommand(cwd: string, rawArgs: string[]): Promise<num
   const config = await resolveConfig(cwd);
   const provider = createProvider(config);
   if (!provider.validate()) {
-    const envKey = PROVIDER_API_KEY_ENV[config.provider] ?? "provider API key";
+    const envKey = config.provider === "api"
+      ? "GLE_API_BASE_URL and model"
+      : config.provider === "cmd"
+        ? "cmd"
+      : PROVIDER_API_KEY_ENV[config.provider] ?? "provider API key";
     printError(`gle: ${envKey} is not set. Falling back to git commit.`);
     return runGitCommit(cwd, rawArgs);
   }

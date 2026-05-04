@@ -36,10 +36,6 @@ export function getGlobalConfigPath(): string {
   return join(getGleRootDir(), "glerc.jsonc");
 }
 
-export function getLegacyConfigPath(): string {
-  return join(getGleRootDir(), "glerc.json");
-}
-
 export function getGlobalPromptPath(): string {
   return join(getGleRootDir(), "prompt.md");
 }

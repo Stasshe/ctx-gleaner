@@ -30,7 +30,7 @@ export class ClaudeProvider extends BaseProvider {
           model: this.config.model,
           messages: [{ role: "user", content: await this.getPrompt(params) }],
           temperature: 0.2,
-          max_tokens: 512,
+          max_tokens: this.config.maxOutputTokens,
         }),
         signal: controller.signal,
       });
