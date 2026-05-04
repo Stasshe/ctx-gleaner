@@ -13,7 +13,15 @@ export const DEFAULT_PROVIDER = "gemini";
 export const DEFAULT_MODELS = {
   gemini: "gemini-2.5-flash",
   openai: "gpt-4o",
+  claude: "claude-sonnet-4-5",
 } as const;
+
+export const SUPPORTED_PROVIDERS = [
+  "api",
+  "openai",
+  "gemini",
+  "claude",
+] as const;
 
 export const LOCKFILE_PATTERNS = [
   "*.lock",
@@ -30,15 +38,29 @@ export const GLE_MANAGED_COMMENT =
 export const GLE_ENV_VARS = [
   "GLE_PROVIDER",
   "GLE_HOME",
+  "GLE_API_KEY",
+  "GLE_API_BASE_URL",
+  "GLE_API_MODEL",
   "GLE_GEMINI_API_KEY",
+  "GLE_GEMINI_MODEL",
   "GLE_OPENAI_API_KEY",
-  "GLE_LITELLM_API_KEY",
-  "GLE_LITELLM_BASE_URL",
-  "GLE_LITELLM_MODEL",
+  "GLE_OPENAI_BASE_URL",
+  "GLE_OPENAI_MODEL",
+  "GLE_CLAUDE_API_KEY",
+  "GLE_CLAUDE_BASE_URL",
+  "GLE_CLAUDE_MODEL",
 ] as const;
 
 export const PROVIDER_API_KEY_ENV: Record<string, string> = {
+  api: "GLE_API_KEY",
   gemini: "GLE_GEMINI_API_KEY",
   openai: "GLE_OPENAI_API_KEY",
-  litellm: "GLE_LITELLM_API_KEY",
+  claude: "GLE_CLAUDE_API_KEY",
+};
+
+export const PROVIDER_MODEL_ENV: Partial<Record<string, string>> = {
+  api: "GLE_API_MODEL",
+  gemini: "GLE_GEMINI_MODEL",
+  openai: "GLE_OPENAI_MODEL",
+  claude: "GLE_CLAUDE_MODEL",
 };

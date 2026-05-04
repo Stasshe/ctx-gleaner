@@ -23,6 +23,7 @@ import {
   upsertPostCommitScript,
 } from "./install-shared.js";
 import { print, warn } from "../output.js";
+import { PROVIDER_API_KEY_ENV } from "../constants.js";
 
 function quoteShellArg(value: string): string {
   return `'${value.replaceAll("'", "'\\''")}'`;
@@ -48,14 +49,14 @@ function buildCliCommand(subcommand: string): string {
 
 const DEFAULT_GLOBAL_CONFIG = `{
   // Generation mode: "api" (default) | "cmd"
-  // "api"  — use a cloud API provider (gemini / openai / litellm)
+  // "api"  — use a cloud API provider
   // "cmd"  — pipe the prompt to a custom command via stdin; read commit message from stdout
   "mode": "api",
 
   // ── api mode ────────────────────────────────────────────────────────────────
-  // provider: "gemini" (default) | "openai" | "litellm"
+  // provider: "api" | "openai" | "gemini" (default) | "claude"
   "provider": "gemini",
-  // model name (provider-specific); omit to use the built-in default
+  // model name (provider-specific); api requires this or GLE_API_MODEL
   "model": "gemini-2.5-flash",
   // max characters from the diff sent to the prompt
   "maxDiffChars": 8000,
@@ -172,12 +173,7 @@ async function detectLegacyHusky(projectRoot: string): Promise<boolean> {
 }
 
 function printApiKeyWarning(provider: string): void {
-  const envMap = {
-    gemini: "GLE_GEMINI_API_KEY",
-    openai: "GLE_OPENAI_API_KEY",
-    litellm: "GLE_LITELLM_API_KEY",
-  } as const;
-  const envName = envMap[provider as keyof typeof envMap];
+  const envName = PROVIDER_API_KEY_ENV[provider];
   if (envName && !process.env[envName]) {
     warn(`⚠ ${envName} が設定されていません。`);
   }

@@ -185,12 +185,23 @@ export GLE_PROVIDER=gemini
 export GLE_GEMINI_API_KEY=...
 ```
 
+For OpenAI-compatible APIs:
+
+```bash
+export GLE_PROVIDER=api
+export GLE_API_BASE_URL=http://localhost:11434/v1
+export GLE_API_MODEL=llama3.2
+# Set GLE_API_KEY only when your endpoint requires a bearer token.
+```
+
 ---
 
 ## Supported providers
 
+* Generic API (OpenAI-compatible endpoints)
+* OpenAI
 * Gemini (default)
-* OpenAI-compatible endpoints (LiteLLM, Ollama, etc.)
+* Claude
 
 ---
 

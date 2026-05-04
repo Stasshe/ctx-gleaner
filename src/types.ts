@@ -1,4 +1,8 @@
-export type ProviderName = "gemini" | "openai" | "litellm";
+export type ProviderName =
+  | "api"
+  | "openai"
+  | "gemini"
+  | "claude";
 export type ModeName = "api" | "cmd";
 
 export interface GleConfigFile {

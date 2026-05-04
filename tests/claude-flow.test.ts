@@ -16,9 +16,9 @@ describe("Claude hook to commit flow", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     delete process.env.GLE_PROVIDER;
-    delete process.env.GLE_LITELLM_API_KEY;
-    delete process.env.GLE_LITELLM_MODEL;
-    delete process.env.GLE_LITELLM_BASE_URL;
+    delete process.env.GLE_API_KEY;
+    delete process.env.GLE_API_MODEL;
+    delete process.env.GLE_API_BASE_URL;
   });
 
   test("collects prompt and stop context, generates commit, then clears context", async () => {
@@ -65,10 +65,10 @@ describe("Claude hook to commit flow", () => {
       await writeFile(join(repoDir, "file.txt"), "hook flow\n", "utf8");
       await runGit(["add", "file.txt"], repoDir);
 
-      process.env.GLE_PROVIDER = "litellm";
-      process.env.GLE_LITELLM_API_KEY = "dummy";
-      process.env.GLE_LITELLM_MODEL = "mock-model";
-      process.env.GLE_LITELLM_BASE_URL = "http://mocked.invalid/v1";
+      process.env.GLE_PROVIDER = "api";
+      process.env.GLE_API_KEY = "dummy";
+      process.env.GLE_API_MODEL = "mock-model";
+      process.env.GLE_API_BASE_URL = "http://mocked.invalid/v1";
 
       vi.stubGlobal(
         "fetch",

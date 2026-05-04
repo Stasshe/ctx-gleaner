@@ -5,6 +5,8 @@ import {
   DEFAULT_MODE,
   DEFAULT_MODELS,
   DEFAULT_PROVIDER,
+  PROVIDER_MODEL_ENV,
+  SUPPORTED_PROVIDERS,
 } from "./constants.js";
 import type { GleConfigFile, ModeName, ProviderName, ResolvedConfig } from "./types.js";
 import { getGlobalConfigPath, getLegacyConfigPath, getGlobalPromptPath } from "./paths.js";
@@ -67,12 +69,12 @@ function resolveProvider(
   globalProvider: string | undefined,
 ): { value: ProviderName; source: ResolvedConfig["sources"]["provider"] } {
   const candidate = (envProvider ?? globalProvider ?? DEFAULT_PROVIDER).toLowerCase();
-  if (candidate === "openai" || candidate === "litellm" || candidate === "gemini") {
+  if (SUPPORTED_PROVIDERS.includes(candidate as ProviderName)) {
     if (envProvider) {
-      return { value: candidate, source: "env" };
+      return { value: candidate as ProviderName, source: "env" };
     }
     if (globalProvider) {
-      return { value: candidate, source: "global" };
+      return { value: candidate as ProviderName, source: "global" };
     }
   }
   return { value: DEFAULT_PROVIDER, source: "default" };
@@ -84,8 +86,8 @@ export async function resolveConfig(cwd: string): Promise<ResolvedConfig> {
   const globalPrompt = await readGlobalPromptFile();
   const provider = resolveProvider(process.env.GLE_PROVIDER, globalConfig.provider);
 
-  const envModel =
-    provider.value === "litellm" ? process.env.GLE_LITELLM_MODEL : undefined;
+  const providerModelEnv = PROVIDER_MODEL_ENV[provider.value];
+  const envModel = providerModelEnv ? process.env[providerModelEnv] : undefined;
   const globalModel = globalConfig.model;
 
   let model: string | undefined;

@@ -76,9 +76,10 @@ ctx-gleaner (npm package)
 │   └── providers/
 │       ├── index.ts                 # Provider ファクトリ・選択ロジック
 │       ├── base.ts                  # BaseProvider（抽象インターフェース）
+│       ├── api.ts                   # 汎用 OpenAI-compatible API 実装
 │       ├── gemini.ts                # Gemini API 実装
 │       ├── openai.ts                # OpenAI API 実装
-│       └── litellm.ts               # LiteLLM 実装
+│       └── claude.ts                # Claude API 実装
 ├── dist/                            # TypeScript build output
 └── package.json
 ```
@@ -155,12 +156,13 @@ JWTをセッション認証に切り替えて、既存のテストも修正し�
 
 | 変数名 | 説明 |
 |---|---|
-| `GLE_PROVIDER` | 使用する Provider（`gemini` / `openai` / `litellm`） |
+| `GLE_PROVIDER` | 使用する Provider（`api` / `openai` / `gemini` / `claude`） |
+| `GLE_API_BASE_URL` | 汎用 API provider の OpenAI-compatible base URL |
+| `GLE_API_MODEL` | 汎用 API provider で使用するモデル |
+| `GLE_API_KEY` | 汎用 API provider の bearer token（必要な場合のみ） |
 | `GLE_GEMINI_API_KEY` | Gemini API キー |
 | `GLE_OPENAI_API_KEY` | OpenAI API キー |
-| `GLE_LITELLM_API_KEY` | LiteLLM API キー |
-| `GLE_LITELLM_BASE_URL` | LiteLLM プロキシ URL（省略時は LiteLLM デフォルト） |
-| `GLE_LITELLM_MODEL` | LiteLLM で使用するモデル |
+| `GLE_CLAUDE_API_KEY` | Claude API キー |
 
 API キーは環境変数のみで管理する。`~/.gle/glerc.json` には書かない。
 
@@ -605,11 +607,32 @@ POST https://generativelanguage.googleapis.com/v1beta/models/<model>:generateCon
 - 先頭・末尾の空白をトリム
 - `` ``` `` で囲まれていた場合は除去
 
-### 7.4 OpenAI Provider
+### 7.4 API Provider
+
+汎用 API provider。OpenAI 互換の `POST /chat/completions` を使う。
+
+**環境変数**: `GLE_API_BASE_URL` / `GLE_API_MODEL` / `GLE_API_KEY`
+
+**モデル**: `GLE_API_MODEL` または `~/.gle/glerc.json` の `model`（必須。デフォルトなし）
+
+**エンドポイント**: `${GLE_API_BASE_URL}/chat/completions`
+
+`GLE_API_KEY` は任意。設定された場合のみ `Authorization: Bearer <key>` を送る。ローカル API（Ollama、LM Studio など）では未設定でよい。
+
+### 7.5 OpenAI-compatible 共通実装
+
+`api` と `openai` は OpenAI 互換の共通実装を使う。
+
+| provider | API key | base URL | model |
+|---|---|---|---|
+| `api` | `GLE_API_KEY`（任意） | `GLE_API_BASE_URL` | `GLE_API_MODEL` または `model` |
+| `openai` | `GLE_OPENAI_API_KEY` | `GLE_OPENAI_BASE_URL` または `https://api.openai.com/v1` | `GLE_OPENAI_MODEL`、`model`、既定値 |
+
+### 7.6 OpenAI Provider
 
 **モデルデフォルト**: `gpt-4o`（`~/.gle/glerc.json` の `model` で上書き可）
 
-**環境変数**: `GLE_OPENAI_API_KEY`
+**環境変数**: `GLE_OPENAI_API_KEY` / `GLE_OPENAI_BASE_URL` / `GLE_OPENAI_MODEL`
 
 **エンドポイント**: `https://api.openai.com/v1/chat/completions`
 
@@ -628,17 +651,15 @@ POST https://generativelanguage.googleapis.com/v1beta/models/<model>:generateCon
 - 先頭・末尾の空白をトリム
 - `` ``` `` で囲まれていた場合は除去
 
-### 7.5 LiteLLM Provider
+### 7.7 Claude Provider
 
-**環境変数**: `GLE_LITELLM_API_KEY` / `GLE_LITELLM_BASE_URL` / `GLE_LITELLM_MODEL`
+**モデルデフォルト**: `claude-sonnet-4-5`（`~/.gle/glerc.json` の `model` で上書き可）
 
-**モデル**: `GLE_LITELLM_MODEL` または `~/.gle/glerc.json` の `model`（必須。デフォルトなし）
+**環境変数**: `GLE_CLAUDE_API_KEY` / `GLE_CLAUDE_BASE_URL` / `GLE_CLAUDE_MODEL`
 
-**エンドポイント**: `${GLE_LITELLM_BASE_URL}/chat/completions`（デフォルト: `https://api.litellm.ai/v1/chat/completions`）
+**エンドポイント**: `${GLE_CLAUDE_BASE_URL}/v1/messages`（デフォルト: `https://api.anthropic.com/v1/messages`）
 
-OpenAI 互換フォーマットで送受信する。ローカル LLM（Ollama、LM Studio）も `GLE_LITELLM_BASE_URL` で対応。
-
-**validate()**: `GLE_LITELLM_MODEL` または `~/.gle/glerc.json` の `model` が未設定の場合は false を返す。
+Anthropic Messages API で送受信する。`content` 配列内の text パートを結合してコミットメッセージとして扱う。
 
 ---
 

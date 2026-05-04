@@ -8,7 +8,8 @@ describe("config resolution", () => {
   const originalHome = process.env.HOME;
   const originalGleHome = process.env.GLE_HOME;
   const originalProvider = process.env.GLE_PROVIDER;
-  const originalLiteLlmModel = process.env.GLE_LITELLM_MODEL;
+  const originalApiModel = process.env.GLE_API_MODEL;
+  const originalClaudeModel = process.env.GLE_CLAUDE_MODEL;
 
   afterEach(async () => {
     if (originalHome === undefined) {
@@ -26,10 +27,15 @@ describe("config resolution", () => {
     } else {
       process.env.GLE_PROVIDER = originalProvider;
     }
-    if (originalLiteLlmModel === undefined) {
-      delete process.env.GLE_LITELLM_MODEL;
+    if (originalApiModel === undefined) {
+      delete process.env.GLE_API_MODEL;
     } else {
-      process.env.GLE_LITELLM_MODEL = originalLiteLlmModel;
+      process.env.GLE_API_MODEL = originalApiModel;
+    }
+    if (originalClaudeModel === undefined) {
+      delete process.env.GLE_CLAUDE_MODEL;
+    } else {
+      process.env.GLE_CLAUDE_MODEL = originalClaudeModel;
     }
   });
 
@@ -40,7 +46,8 @@ describe("config resolution", () => {
     try {
       process.env.GLE_HOME = fakeHome;
       delete process.env.GLE_PROVIDER;
-      delete process.env.GLE_LITELLM_MODEL;
+      delete process.env.GLE_API_MODEL;
+      delete process.env.GLE_CLAUDE_MODEL;
       await mkdir(join(fakeHome, ".gle"), { recursive: true });
       await writeFile(
         join(fakeHome, ".gle", "glerc.json"),
@@ -68,6 +75,28 @@ describe("config resolution", () => {
       expect(config.sources.prompt).toBe("global");
     } finally {
       await rm(fakeHome, { recursive: true, force: true });
+      await rm(repoDir, { recursive: true, force: true });
+    }
+  });
+
+  test("supports API and Claude providers with model environment overrides", async () => {
+    const repoDir = await mkdtemp(join(tmpdir(), "gle-config-provider-"));
+    try {
+      process.env.GLE_PROVIDER = "claude";
+      process.env.GLE_CLAUDE_MODEL = "claude-test";
+
+      const claudeConfig = await resolveConfig(repoDir);
+      expect(claudeConfig.provider).toBe("claude");
+      expect(claudeConfig.model).toBe("claude-test");
+      expect(claudeConfig.sources.model).toBe("env");
+
+      process.env.GLE_PROVIDER = "api";
+      process.env.GLE_API_MODEL = "api-test";
+
+      const apiConfig = await resolveConfig(repoDir);
+      expect(apiConfig.provider).toBe("api");
+      expect(apiConfig.model).toBe("api-test");
+    } finally {
       await rm(repoDir, { recursive: true, force: true });
     }
   });

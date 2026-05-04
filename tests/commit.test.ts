@@ -24,9 +24,9 @@ describe("commit command", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     delete process.env.GLE_PROVIDER;
-    delete process.env.GLE_LITELLM_API_KEY;
-    delete process.env.GLE_LITELLM_MODEL;
-    delete process.env.GLE_LITELLM_BASE_URL;
+    delete process.env.GLE_API_KEY;
+    delete process.env.GLE_API_MODEL;
+    delete process.env.GLE_API_BASE_URL;
   });
 
   test("generates a commit message through the provider path", async () => {
@@ -40,10 +40,10 @@ describe("commit command", () => {
         "utf8",
       );
 
-      process.env.GLE_PROVIDER = "litellm";
-      process.env.GLE_LITELLM_API_KEY = "dummy";
-      process.env.GLE_LITELLM_MODEL = "mock-model";
-      process.env.GLE_LITELLM_BASE_URL = "http://mocked.invalid/v1";
+      process.env.GLE_PROVIDER = "api";
+      process.env.GLE_API_KEY = "dummy";
+      process.env.GLE_API_MODEL = "mock-model";
+      process.env.GLE_API_BASE_URL = "http://mocked.invalid/v1";
 
       vi.stubGlobal(
         "fetch",
