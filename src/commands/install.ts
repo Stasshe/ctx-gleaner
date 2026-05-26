@@ -6,6 +6,7 @@ import {
   getContextFilePath,
   getCoreHooksPath,
   getGitRoot,
+  markRepositoryPrepared,
   runGit,
   setCoreHooksPath,
 } from "../git.js";
@@ -227,8 +228,8 @@ export async function installCommand(cwd: string): Promise<number> {
   print(`✓ ユーザー設定を確認しました (${getGlobalConfigPath()})`);
   print();
   print("gle のユーザーセットアップが完了しました。");
-  print("次回 Claude Code セッションから自動でコンテキストが収集されます。");
-  print("repo ごとの post-commit cleanup が必要な場合は、その repo で gle prepare を実行してください。");
+  print("コンテキストを収集する repo で gle prepare を実行してください。");
+  print("gle prepare 済みの repo だけが Claude Code hooks と post-commit の対象になります。");
   print();
   print("カスタムプロンプト: ~/.gle/prompt.md を作成するとデフォルトプロンプトを上書きできます。");
   print("言語設定: gle lang [auto|en|ja|zh|ko|es]");
@@ -246,6 +247,7 @@ export async function prepareCommand(cwd: string): Promise<number> {
   const contextPath = await getContextFilePath(cwd);
   await ensureGleGitignoreEntry(projectRoot);
   await ensureContextFile(contextPath);
+  await markRepositoryPrepared(cwd);
 
   print(`✓ git post-commit hook を設定しました (${hookPathDescription})`);
   print(`✓ コンテキスト保存先を初期化しました (${contextPath})`);

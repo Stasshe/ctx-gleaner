@@ -15,6 +15,7 @@ import {
   hasStagedChanges,
   hasUnstagedChanges,
   hasUntrackedFiles,
+  isRepositoryPrepared,
   stageAll,
   getUnstagedDiffStat,
   getUnstagedDiffBody,
@@ -85,6 +86,9 @@ async function runEditor(path: string): Promise<void> {
 }
 
 export async function postCommitCommand(cwd: string): Promise<number> {
+  if (!(await isRepositoryPrepared(cwd).catch(() => false))) {
+    return 0;
+  }
   const contextPath = await getContextFilePath(cwd).catch(() => null);
   if (contextPath) {
     await resetContextFile(contextPath).catch((error) => {
@@ -161,7 +165,7 @@ export async function commitCommand(cwd: string, rawArgs: string[]): Promise<num
         ? ["-a", ...gitArgs]
         : gitArgs;
       const exitCode = await runGitCommit(cwd, ["-F", tempFile.path, ...passthroughArgs]);
-      if (exitCode === 0) {
+      if (exitCode === 0 && (await isRepositoryPrepared(cwd).catch(() => false))) {
         await resetContextFile(contextPath);
       }
       return exitCode;

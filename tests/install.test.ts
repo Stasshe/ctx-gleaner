@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { installCommand, prepareCommand } from "../src/commands/install.js";
-import { runGit } from "../src/git.js";
+import { isRepositoryPrepared, runGit } from "../src/git.js";
 
 describe("install and prepare commands", () => {
   const originalArgv = [...process.argv];
@@ -73,6 +73,7 @@ describe("install and prepare commands", () => {
 
       await runGit(["init"], repo);
       await expect(prepareCommand(repo)).resolves.toBe(0);
+      await expect(isRepositoryPrepared(repo)).resolves.toBe(true);
 
       const hook = await readFile(join(fakeHome, ".gle", "hooks", "post-commit"), "utf8");
       expect(hook).toContain("_post-commit");
