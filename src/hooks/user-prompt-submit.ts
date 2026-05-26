@@ -1,5 +1,9 @@
 import { appendPromptContext } from "../context.js";
-import { getContextFilePath, isGitRepository } from "../git.js";
+import {
+  getContextFilePath,
+  isGitRepository,
+  isRepositoryPrepared,
+} from "../git.js";
 import { pathToFileURL } from "node:url";
 import { printError } from "../output.js";
 
@@ -23,6 +27,9 @@ export async function handleUserPromptSubmitPayload(
     return;
   }
   if (!(await isGitRepository(payload.cwd))) {
+    return;
+  }
+  if (!(await isRepositoryPrepared(payload.cwd))) {
     return;
   }
   const contextPath = await getContextFilePath(payload.cwd);

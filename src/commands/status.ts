@@ -3,7 +3,11 @@ import { join } from "node:path";
 import { resolveConfig } from "../config.js";
 import { GLE_ENV_VARS } from "../constants.js";
 import { countContextEntries, readContextFile } from "../context.js";
-import { getCoreHooksPath, getContextFilePath } from "../git.js";
+import {
+  getCoreHooksPath,
+  getContextFilePath,
+  isRepositoryPrepared,
+} from "../git.js";
 import {
   getClaudeSettingsPath,
   getDefaultHooksDir,
@@ -32,6 +36,12 @@ export async function statusCommand(cwd: string): Promise<number> {
   const globalConfigPath = getGlobalConfigPath();
   const globalPromptPath = getGlobalPromptPath();
   const contextPath = await getContextFilePath(cwd).catch(() => null);
+  const repositoryPrepared = await isRepositoryPrepared(cwd).catch(() => false);
+  const repositoryStatus = contextPath
+    ? repositoryPrepared
+      ? "gle prepare 済み"
+      : "gle prepare 未実行"
+    : "git リポジトリ外";
   const contextContent = contextPath ? await readContextFile(contextPath) : "";
   const contextEntries = contextContent ? countContextEntries(contextContent) : 0;
 
@@ -51,6 +61,9 @@ export async function statusCommand(cwd: string): Promise<number> {
   );
   print(
     `  ${configuredHooksPath ? "✓" : "✗"} core.hooksPath    ${hookPath}`,
+  );
+  print(
+    `  ${repositoryPrepared ? "✓" : "✗"} repository        ${repositoryStatus}`,
   );
   print();
   print("設定:");
@@ -78,9 +91,13 @@ export async function statusCommand(cwd: string): Promise<number> {
   print("現在のコンテキスト:");
   if (contextPath) {
     print(`  プロジェクト: ${cwd}`);
-    print(
-      `  ${contextEntries > 0 ? "✓" : "✗"} GLE_COMMIT_CONTEXT.md  ${contextEntries}件のエントリ`,
-    );
+    if (repositoryPrepared) {
+      print(
+        `  ${contextEntries > 0 ? "✓" : "✗"} GLE_COMMIT_CONTEXT.md  ${contextEntries}件のエントリ`,
+      );
+    } else {
+      print("  ✗ gle prepare 未実行のためコンテキスト収集は無効です");
+    }
   } else {
     print("  git リポジトリ外です");
   }

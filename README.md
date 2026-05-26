@@ -165,6 +165,8 @@ This installs hooks into:
 ~/.claude/settings.json
 ```
 
+Run `gle prepare` in each repository where context collection should be enabled. Claude and post-commit hooks do not create or update `.gle` files in unprepared repositories.
+
 ---
 
 ## Configuration
@@ -199,7 +201,7 @@ export GLE_GEMINI_API_KEY=...
 | Command       | Description               |
 | ------------- | ------------------------- |
 | `gle install` | Install Claude Code hooks |
-| `gle prepare` | Add post-commit cleanup   |
+| `gle prepare` | Enable context collection and cleanup in this repository |
 | `gle commit`  | Generate commit message   |
 | `gle context` | Show captured context     |
 | `gle status`  | Show configuration        |

@@ -180,7 +180,7 @@ Claude Code hooks は `~/.claude/settings.json` に保存されるため、hook 
 
 ### 4.2 `gle install` の処理内容
 
-`gle install` はユーザー単位の Claude Code hook だけを設定する。git リポジトリ外でも実行できる。Claude Code hook は、実行時の `cwd` が git リポジトリではない場合は stdout へ何も出さず exit 0 する。
+`gle install` はユーザー単位の Claude Code hook だけを設定する。git リポジトリ外でも実行できる。Claude Code hook は、実行時の `cwd` が git リポジトリではない場合、またはそのリポジトリで `gle prepare` が実行されていない場合は stdout へ何も出さず exit 0 する。
 
 #### ステップ 1: 前提確認
 
@@ -245,15 +245,15 @@ API キーが未設定の場合、以下のように警告して処理を継続�
 ✓ ユーザー設定を確認しました (~/.gle/glerc.json, ~/.gle/prompt.md)
 
 gle のユーザーセットアップが完了しました。
-次回 Claude Code セッションから自動でコンテキストが収集されます。
-repo ごとの post-commit cleanup が必要な場合は、その repo で gle prepare を実行してください。
+コンテキストを収集する repo で gle prepare を実行してください。
+gle prepare 済みの repo だけが Claude Code hooks と post-commit の対象になります。
 
 アンインストール: gle uninstall
 ```
 
 ### 4.3 `gle prepare` の処理内容
 
-`gle prepare` はリポジトリ単位の cleanup hook を設定する。git リポジトリ内でのみ実行できる。
+`gle prepare` はリポジトリ単位でコンテキスト収集と cleanup hook を有効化する。git リポジトリ内でのみ実行できる。準備状態はローカル Git 設定 `gle.prepared=true` に記録する。
 
 `post-commit` hook を設定する。役割は通常の `git commit` 実行後のコンテキストクリアのみ。
 
@@ -409,9 +409,10 @@ git config --global core.hooksPath ~/.gle/hooks
 
 **処理フロー**:
 
-1. `git rev-parse --git-dir` で `.git` ディレクトリを解決
-2. `.git/GLE_COMMIT_CONTEXT.md` が存在する場合、ヘッダ行のみ残してリセット
-3. exit 0
+1. ローカル Git 設定 `gle.prepared=true` であることを確認し、未設定なら何もせず exit 0
+2. `git rev-parse --show-toplevel` でプロジェクトルートを解決
+3. `.gle/GLE_COMMIT_CONTEXT.md` をヘッダ行のみ残してリセット
+4. exit 0
 
 失敗しても commit 自体はすでに成功しているため、stderr に警告を出して exit 0。`gle commit` 本体もコミット成功時に自前でコンテキストをクリアするため、両方が実行されても冪等である。
 
@@ -649,7 +650,7 @@ OpenAI 互換フォーマットで送受信する。ローカル LLM（Ollama、
 | コマンド | 説明 |
 |---|---|
 | `gle install` | セットアップを実行 |
-| `gle prepare` | 現在のリポジトリに post-commit cleanup hook を設定 |
+| `gle prepare` | 現在のリポジトリでコンテキスト収集と post-commit cleanup を有効化 |
 | `gle uninstall` | セットアップを取り消す |
 | `gle commit [git flags]` | コンテキストと staged diff からメッセージを生成してコミット |
 | `gle commit --edit [git flags]` | 生成後エディタを起動してメッセージを確認・編集してからコミット |

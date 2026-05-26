@@ -1,12 +1,12 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { commitCommand } from "../src/commands/commit.js";
+import { commitCommand, postCommitCommand } from "../src/commands/commit.js";
 import { readContextFile } from "../src/context.js";
-import { getContextFilePath, runGit } from "../src/git.js";
+import { getContextFilePath, markRepositoryPrepared, runGit } from "../src/git.js";
 import { handleStopPayload } from "../src/hooks/stop.js";
 import { handleUserPromptSubmitPayload } from "../src/hooks/user-prompt-submit.js";
 
@@ -29,6 +29,8 @@ describe("Claude hook to commit flow", () => {
       await runGit(["init"], repoDir);
       await runGit(["config", "user.name", "gle test"], repoDir);
       await runGit(["config", "user.email", "gle@example.com"], repoDir);
+      await runGit(["config", "core.hooksPath", "/dev/null"], repoDir);
+      await markRepositoryPrepared(repoDir);
 
       await handleUserPromptSubmitPayload({
         cwd: repoDir,
@@ -119,6 +121,39 @@ describe("Claude hook to commit flow", () => {
       ).resolves.toBeUndefined();
     } finally {
       await rm(nonRepo, { recursive: true, force: true });
+    }
+  });
+
+  test("does not create project files in an unprepared git repository", async () => {
+    const repoDir = await mkdtemp(join(tmpdir(), "gle-claude-unprepared-"));
+    const transcriptPath = join(repoDir, "transcript.jsonl");
+
+    try {
+      await runGit(["init"], repoDir);
+      await writeFile(
+        transcriptPath,
+        JSON.stringify({
+          role: "assistant",
+          message: { content: [{ type: "text", text: "No collection expected." }] },
+        }),
+        "utf8",
+      );
+
+      await handleUserPromptSubmitPayload({
+        cwd: repoDir,
+        prompt: "do not collect",
+      });
+      await handleStopPayload({
+        cwd: repoDir,
+        transcript_path: transcriptPath,
+        stop_hook_active: false,
+      });
+      await postCommitCommand(repoDir);
+
+      await expect(access(join(repoDir, ".gle"))).rejects.toThrow();
+      await expect(access(join(repoDir, ".gitignore"))).rejects.toThrow();
+    } finally {
+      await rm(repoDir, { recursive: true, force: true });
     }
   });
 });

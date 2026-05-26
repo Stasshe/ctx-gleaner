@@ -1,7 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { appendStopContext } from "../context.js";
-import { getContextFilePath, isGitRepository } from "../git.js";
+import {
+  getContextFilePath,
+  isGitRepository,
+  isRepositoryPrepared,
+} from "../git.js";
 import { printError } from "../output.js";
 import { extractAssistantText, truncateTail } from "../transcript.js";
 
@@ -24,6 +28,9 @@ export async function handleStopPayload(payload: StopPayload): Promise<void> {
     return;
   }
   if (!(await isGitRepository(payload.cwd))) {
+    return;
+  }
+  if (!(await isRepositoryPrepared(payload.cwd))) {
     return;
   }
 

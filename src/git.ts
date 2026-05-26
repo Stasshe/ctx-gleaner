@@ -113,6 +113,17 @@ export async function setCoreHooksPath(path: string): Promise<void> {
   await runGit(["config", "--global", "core.hooksPath", path]);
 }
 
+export async function isRepositoryPrepared(cwd: string): Promise<boolean> {
+  const result = await runGitRaw(
+    ["-C", cwd, "config", "--local", "--bool", "--get", "gle.prepared"],
+  );
+  return result.code === 0 && result.stdout.trim() === "true";
+}
+
+export async function markRepositoryPrepared(cwd: string): Promise<void> {
+  await runGit(["-C", cwd, "config", "--local", "gle.prepared", "true"]);
+}
+
 function buildDiffPathspec(): string[] {
   return LOCKFILE_PATTERNS.map((pattern) => `:(exclude)${pattern}`);
 }
