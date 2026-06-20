@@ -2,35 +2,71 @@
 ├── README.md
 ├── SPECIFICATION.md
 ├── TODO.md
+├── bin
+│   └── gle.js
 ├── biome.json
-├── next.config.ts
-├── package-lock.json
 ├── package.json
-├── postcss.config.js
-├── public
-│   ├── favicon.png
-│   ├── file.svg
-│   ├── globe.svg
-│   ├── next.svg
-│   └── window.svg
+├── pnpm-lock.yaml
+├── prompts
+│   ├── auto.md
+│   ├── en.md
+│   ├── es.md
+│   ├── ja.md
+│   ├── ko.md
+│   └── zh.md
 ├── src
-│   ├── app
-│   │   ├── globals.css
-│   │   ├── layout.tsx
-│   │   └── page.tsx
-│   └── contexts
-│       └── ThemeContext.tsx
-├── tailwind.config.ts
+│   ├── cli.ts
+│   ├── commands
+│   │   ├── commit.ts
+│   │   ├── context.ts
+│   │   ├── generate.ts
+│   │   ├── install-shared.ts
+│   │   ├── install.ts
+│   │   ├── lang.ts
+│   │   ├── status.ts
+│   │   └── uninstall.ts
+│   ├── config.ts
+│   ├── constants.ts
+│   ├── context.ts
+│   ├── git.ts
+│   ├── hooks
+│   │   ├── post-commit.ts
+│   │   ├── stop.ts
+│   │   └── user-prompt-submit.ts
+│   ├── index.ts
+│   ├── output.ts
+│   ├── paths.ts
+│   ├── providers
+│   │   ├── base.ts
+│   │   ├── cmd.ts
+│   │   ├── gemini.ts
+│   │   ├── index.ts
+│   │   ├── litellm.ts
+│   │   └── openai.ts
+│   ├── transcript.ts
+│   ├── types.ts
+│   ├── utils.ts
+│   └── version.ts
+├── tests
+│   ├── claude-flow.test.ts
+│   ├── commit.test.ts
+│   ├── config.test.ts
+│   ├── context.test.ts
+│   ├── generate.test.ts
+│   ├── install-shared.test.ts
+│   ├── install.test.ts
+│   └── transcript.test.ts
 ├── tree.sh
 ├── tree.txt
-└── tsconfig.json
+├── tsconfig.json
+└── vitest.config.ts
 
-5 directories, 21 files
+8 directories, 54 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 242
-合計文字数: 9142
-合計ファイルサイズ(bytes): 9442
+合計行数: 2291
+合計文字数: 68468
+合計ファイルサイズ(bytes): 69464
 
 開発環境の容量:
-416M	.
+251M	.
