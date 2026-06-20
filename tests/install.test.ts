@@ -37,7 +37,8 @@ describe("install and prepare commands", () => {
 
     try {
       process.env.GLE_HOME = fakeHome;
-      process.argv = ["node", "/usr/local/bin/gle", "install"];
+      process.env.HOME = fakeHome;
+      process.argv = ["node", join(fakeHome, ".local", "bin", "gle"), "install"];
       vi.spyOn(console, "log").mockImplementation(() => undefined);
       vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
@@ -49,6 +50,8 @@ describe("install and prepare commands", () => {
       );
       expect(settings).toContain("_user-prompt-submit");
       expect(settings).toContain("_stop");
+      expect(settings).toContain("node ~/.local/bin/gle _user-prompt-submit");
+      expect(settings).toContain("node ~/.local/bin/gle _stop");
 
       const globalConfig = await readFile(
         join(fakeHome, ".gle", "glerc.jsonc"),

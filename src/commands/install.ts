@@ -1,4 +1,5 @@
 import { chmod, mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { resolveConfig } from "../config.js";
 import { ensureContextFile, ensureGleGitignoreEntry } from "../context.js";
@@ -29,6 +30,20 @@ function quoteShellArg(value: string): string {
   return `'${value.replaceAll("'", "'\\''")}'`;
 }
 
+function formatShellPath(value: string): string {
+  const home = resolve(homedir());
+  if (!home || home === "/" || !value.startsWith(`${home}/`)) {
+    return quoteShellArg(value);
+  }
+
+  const suffix = value.slice(home.length);
+  if (/^[A-Za-z0-9_@%+=:,./-]+$/.test(suffix)) {
+    return `~${suffix}`;
+  }
+
+  return `~${quoteShellArg(suffix)}`;
+}
+
 function getGlobalCliPath(): string {
   const cliPath = resolve(process.argv[1] ?? "");
   if (
@@ -44,7 +59,7 @@ function getGlobalCliPath(): string {
 }
 
 function buildCliCommand(subcommand: string): string {
-  return `node ${quoteShellArg(getGlobalCliPath())} ${subcommand}`;
+  return `node ${formatShellPath(getGlobalCliPath())} ${subcommand}`;
 }
 
 const DEFAULT_GLOBAL_CONFIG = `{

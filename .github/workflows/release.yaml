@@ -18,25 +18,28 @@ jobs:
       id-token: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v6
         with:
-          node-version: 'lts/*'
-          cache: 'npm'
-          registry-url: 'https://registry.npmjs.org/'
+          run_install: false
 
-      - run: npm ci
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
 
       - name: Bump version
         id: version
         run: |
-          npm version ${{ github.event.inputs.version_bump }} --no-git-tag-version
+          pnpm version ${{ github.event.inputs.version_bump }} --no-git-tag-version
           echo "new_version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
 
-      - run: npm run build
+      - run: pnpm run build
 
       - name: Get previous tag
         id: prev_tag
@@ -64,16 +67,13 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add package.json package-lock.json
+          git add package.json pnpm-lock.yaml
           git commit -m "chore(release): v${{ steps.version.outputs.new_version }}" || true
           git tag -a "v${{ steps.version.outputs.new_version }}" -m "v${{ steps.version.outputs.new_version }}"
           git push origin HEAD --follow-tags
 
-      - name: Publish to npm
-        run: npm publish --provenance --access public
-
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ steps.version.outputs.new_version }}
           name: v${{ steps.version.outputs.new_version }}
