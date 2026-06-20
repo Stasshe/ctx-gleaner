@@ -5,6 +5,7 @@
   "description": "Context-aware commit message generator for Claude Code",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "packageManager": "pnpm@11.4.0",
   "bin": {
     "gle": "./bin/gle.js"
   },
