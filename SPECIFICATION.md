@@ -176,7 +176,7 @@ npm install -g ctx-gleaner
 gle install
 ```
 
-Claude Code hooks は `~/.claude/settings.json` に保存されるため、hook の参照先はユーザー環境で安定して存在する必要がある。`--save-dev` でインストールすると hook が特定プロジェクトの `node_modules/ctx-gleaner` を指し、そのプロジェクトを削除・移動したときに hook が壊れる。そのため `gle install` はグローバルインストールのみをサポートする。
+Claude Code hooks は `~/.claude/settings.json` に保存されるため、hook の参照先はユーザー環境で安定して存在する必要がある。`--save-dev` でインストールすると hook が特定プロジェクトの `node_modules/ctx-gleaner` に依存するため、`gle install` はグローバルインストールのみをサポートする。hook コマンドは `PATH` から `gle` を解決し、Node バージョンマネージャー固有の絶対パスを保存しない。
 
 ### 4.2 `gle install` の処理内容
 
@@ -202,7 +202,7 @@ API キーが未設定の場合、以下のように警告して処理を継続�
 
 #### ステップ 2: Claude Code hook スクリプトの配置
 
-グローバルインストールされた `gle` CLI の絶対パスを参照し、hook からは hidden subcommand を呼び出す。ローカル `node_modules/ctx-gleaner` から実行された `gle install` はエラーにする。
+`PATH` 上の `gle` CLI を参照し、hook からは hidden subcommand を呼び出す。ローカル `node_modules/ctx-gleaner` から実行された `gle install` はエラーにする。
 
 #### ステップ 3: `~/.claude/settings.json` への hook 登録
 
@@ -216,7 +216,7 @@ API キーが未設定の場合、以下のように警告して処理を継続�
         "hooks": [
           {
             "type": "command",
-            "command": "node /path/to/global/bin/gle _user-prompt-submit"
+            "command": "gle _user-prompt-submit"
           }
         ]
       }
@@ -226,7 +226,7 @@ API キーが未設定の場合、以下のように警告して処理を継続�
         "hooks": [
           {
             "type": "command",
-            "command": "node /path/to/global/bin/gle _stop",
+            "command": "gle _stop",
             "async": true
           }
         ]
@@ -318,7 +318,7 @@ git config --global core.hooksPath ~/.gle/hooks
 ### 5.1 UserPromptSubmit Hook
 
 **ファイル**: `dist/hooks/user-prompt-submit.js`  
-**install 登録コマンド**: `node /path/to/global/bin/gle _user-prompt-submit`
+**install 登録コマンド**: `gle _user-prompt-submit`
 **トリガー**: Claude Code でユーザーがプロンプトを送信するたびに発火  
 **非同期**: false（同期）
 

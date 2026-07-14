@@ -1,6 +1,5 @@
 import { chmod, mkdir, readFile, stat, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { resolveConfig } from "../config.js";
 import { ensureContextFile, ensureGleGitignoreEntry } from "../context.js";
 import {
@@ -26,26 +25,8 @@ import {
 } from "./install-shared.js";
 import { print, warn } from "../output.js";
 
-function quoteShellArg(value: string): string {
-  return `'${value.replaceAll("'", "'\\''")}'`;
-}
-
-function formatShellPath(value: string): string {
-  const home = resolve(homedir());
-  if (!home || home === "/" || !value.startsWith(`${home}/`)) {
-    return quoteShellArg(value);
-  }
-
-  const suffix = value.slice(home.length);
-  if (/^[A-Za-z0-9_@%+=:,./-]+$/.test(suffix)) {
-    return `~${suffix}`;
-  }
-
-  return `~${quoteShellArg(suffix)}`;
-}
-
-function getGlobalCliPath(): string {
-  const cliPath = resolve(process.argv[1] ?? "");
+function ensureGlobalInstall(): void {
+  const cliPath = process.argv[1] ?? "";
   if (
     cliPath.endsWith(`${join("dist", "cli.js")}`) ||
     cliPath.includes(`${join("node_modules", ".bin", "gle")}`) ||
@@ -55,11 +36,10 @@ function getGlobalCliPath(): string {
       "gle install must be run from a global install. Run: npm install -g ctx-gleaner && gle install",
     );
   }
-  return cliPath;
 }
 
 function buildCliCommand(subcommand: string): string {
-  return `node ${formatShellPath(getGlobalCliPath())} ${subcommand}`;
+  return `gle ${subcommand}`;
 }
 
 const DEFAULT_GLOBAL_CONFIG = `{
@@ -236,7 +216,7 @@ export async function installCommand(cwd: string): Promise<number> {
     throw new Error("Node.js >= 18 is required");
   }
 
-  getGlobalCliPath();
+  ensureGlobalInstall();
   await ensureGitInstalled();
   await ensureClaudeCli();
 
@@ -261,7 +241,7 @@ export async function installCommand(cwd: string): Promise<number> {
 }
 
 export async function prepareCommand(cwd: string): Promise<number> {
-  getGlobalCliPath();
+  ensureGlobalInstall();
   await ensureGitInstalled();
   const projectRoot = await getGitRoot(cwd);
   const hookPathDescription = await installGitHook(cwd);

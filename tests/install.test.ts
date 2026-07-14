@@ -50,8 +50,9 @@ describe("install and prepare commands", () => {
       );
       expect(settings).toContain("_user-prompt-submit");
       expect(settings).toContain("_stop");
-      expect(settings).toContain("node ~/.local/bin/gle _user-prompt-submit");
-      expect(settings).toContain("node ~/.local/bin/gle _stop");
+      expect(settings).toContain("gle _user-prompt-submit");
+      expect(settings).toContain("gle _stop");
+      expect(settings).not.toContain(join(fakeHome, ".local", "bin", "gle"));
 
       const globalConfig = await readFile(
         join(fakeHome, ".gle", "glerc.jsonc"),
@@ -79,7 +80,8 @@ describe("install and prepare commands", () => {
       await expect(isRepositoryPrepared(repo)).resolves.toBe(true);
 
       const hook = await readFile(join(fakeHome, ".gle", "hooks", "post-commit"), "utf8");
-      expect(hook).toContain("_post-commit");
+      expect(hook).toContain("gle _post-commit");
+      expect(hook).not.toContain("/usr/local/bin/gle");
 
       const context = await readFile(
         join(repo, ".gle", "GLE_COMMIT_CONTEXT.md"),

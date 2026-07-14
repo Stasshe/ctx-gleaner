@@ -165,6 +165,8 @@ This installs hooks into:
 ~/.claude/settings.json
 ```
 
+Hook commands resolve `gle` from `PATH`, so Node version-manager updates do not leave stale runtime-specific paths behind.
+
 Run `gle prepare` in each repository where context collection should be enabled. Claude and post-commit hooks do not create or update `.gle` files in unprepared repositories.
 
 ---
