@@ -28,15 +28,9 @@ export function buildClaudeHookEntry(command: string, asyncFlag = false) {
   };
 }
 
-function isCommandHook(
-  hook: Record<string, unknown>,
-  command: string,
-  asyncFlag = false,
-): boolean {
+function isCommandHook(hook: Record<string, unknown>, command: string, asyncFlag = false): boolean {
   return (
-    hook.type === "command" &&
-    hook.command === command &&
-    (asyncFlag ? hook.async === true : true)
+    hook.type === "command" && hook.command === command && (asyncFlag ? hook.async === true : true)
   );
 }
 
@@ -178,10 +172,7 @@ export function formatPostCommitManagedBlock(command: string): string {
   return `${GLE_MANAGED_COMMENT}\n${command}`;
 }
 
-export function upsertPostCommitScript(
-  existingContent: string,
-  command: string,
-): string {
+export function upsertPostCommitScript(existingContent: string, command: string): string {
   const managedBlock = formatPostCommitManagedBlock(command);
   const normalized = removeAnyManagedPostCommitBlock(existingContent).trimEnd();
 
@@ -215,10 +206,7 @@ export function removeAnyManagedPostCommitBlock(content: string): string {
   return filtered.join("\n").trimEnd();
 }
 
-export function removeManagedPostCommitBlock(
-  content: string,
-  command: string,
-): string {
+export function removeManagedPostCommitBlock(content: string, command: string): string {
   const lines = content.split("\n");
   const filtered: string[] = [];
 

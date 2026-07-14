@@ -58,9 +58,7 @@ describe("generate command", () => {
       expect(exitCode).toBe(0);
 
       const outputPath = await getGeneratedMsgPath(repoDir);
-      await expect(readFile(outputPath, "utf8")).resolves.toBe(
-        "feat: add generated message\n",
-      );
+      await expect(readFile(outputPath, "utf8")).resolves.toBe("feat: add generated message\n");
     } finally {
       await rm(repoDir, { force: true, recursive: true });
     }

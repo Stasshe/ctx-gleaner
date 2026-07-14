@@ -1,11 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { appendStopContext } from "../context.js";
-import {
-  getContextFilePath,
-  isGitRepository,
-  isRepositoryPrepared,
-} from "../git.js";
+import { getContextFilePath, isGitRepository, isRepositoryPrepared } from "../git.js";
 import { printError } from "../output.js";
 import { extractAssistantText, truncateTail } from "../transcript.js";
 

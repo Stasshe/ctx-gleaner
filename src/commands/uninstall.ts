@@ -1,10 +1,6 @@
 import { rm, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import {
-  getCoreHooksPath,
-  getGitRoot,
-  unsetCoreHooksPath,
-} from "../git.js";
+import { getCoreHooksPath, getGitRoot, unsetCoreHooksPath } from "../git.js";
 import {
   getClaudeBackupPath,
   getClaudeSettingsPath,
@@ -29,11 +25,7 @@ async function uninstallClaudeHooks(): Promise<void> {
   }
 
   const settings = JSON.parse(raw) as ClaudeSettings;
-  removeClaudeHook(
-    settings,
-    "UserPromptSubmit",
-    `node ${getDistHookPath("user-prompt-submit")}`,
-  );
+  removeClaudeHook(settings, "UserPromptSubmit", `node ${getDistHookPath("user-prompt-submit")}`);
   removeClaudeHook(settings, "Stop", `node ${getDistHookPath("stop")}`);
   removeClaudeHookByScriptName(settings, "UserPromptSubmit", "user-prompt-submit");
   removeClaudeHookByScriptName(settings, "Stop", "stop");

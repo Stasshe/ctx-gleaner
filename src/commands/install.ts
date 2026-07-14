@@ -158,9 +158,9 @@ async function installHuskyPostCommit(projectRoot: string): Promise<string> {
 
 async function detectLegacyHusky(projectRoot: string): Promise<boolean> {
   try {
-    const packageJson = JSON.parse(
-      await readFile(join(projectRoot, "package.json"), "utf8"),
-    ) as { husky?: unknown };
+    const packageJson = JSON.parse(await readFile(join(projectRoot, "package.json"), "utf8")) as {
+      husky?: unknown;
+    };
     return Boolean(packageJson.husky);
   } catch {
     return false;
@@ -191,9 +191,7 @@ async function installGitHook(cwd: string): Promise<string> {
   }
 
   if (await detectLegacyHusky(projectRoot)) {
-    warn(
-      "⚠ Husky v8 が検出されました。gle は Husky v9+ のみ自動対応します。",
-    );
+    warn("⚠ Husky v8 が検出されました。gle は Husky v9+ のみ自動対応します。");
   }
 
   const existingHooksPath = await getCoreHooksPath();

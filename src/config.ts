@@ -84,8 +84,7 @@ export async function resolveConfig(cwd: string): Promise<ResolvedConfig> {
   const globalPrompt = await readGlobalPromptFile();
   const provider = resolveProvider(process.env.GLE_PROVIDER, globalConfig.provider);
 
-  const envModel =
-    provider.value === "litellm" ? process.env.GLE_LITELLM_MODEL : undefined;
+  const envModel = provider.value === "litellm" ? process.env.GLE_LITELLM_MODEL : undefined;
   const globalModel = globalConfig.model;
 
   let model: string | undefined;
@@ -118,9 +117,10 @@ export async function resolveConfig(cwd: string): Promise<ResolvedConfig> {
       typeof globalConfig.language === "string" && globalConfig.language.trim()
         ? globalConfig.language.trim()
         : DEFAULT_LANGUAGE,
-    cmd: typeof globalConfig.cmd === "string" && globalConfig.cmd.trim()
-      ? globalConfig.cmd.trim()
-      : undefined,
+    cmd:
+      typeof globalConfig.cmd === "string" && globalConfig.cmd.trim()
+        ? globalConfig.cmd.trim()
+        : undefined,
     sources: {
       mode: modeRaw === "cmd" || modeRaw === "api" ? "global" : "default",
       provider: provider.source,

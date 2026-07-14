@@ -24,8 +24,7 @@ export const LOCKFILE_PATTERNS = [
   "Gemfile.lock",
 ];
 
-export const GLE_MANAGED_COMMENT =
-  "# gle: clear collected context after successful commit";
+export const GLE_MANAGED_COMMENT = "# gle: clear collected context after successful commit";
 
 export const GLE_ENV_VARS = [
   "GLE_PROVIDER",

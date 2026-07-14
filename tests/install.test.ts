@@ -44,20 +44,14 @@ describe("install and prepare commands", () => {
 
       await expect(installCommand(nonRepo)).resolves.toBe(0);
 
-      const settings = await readFile(
-        join(fakeHome, ".claude", "settings.json"),
-        "utf8",
-      );
+      const settings = await readFile(join(fakeHome, ".claude", "settings.json"), "utf8");
       expect(settings).toContain("_user-prompt-submit");
       expect(settings).toContain("_stop");
       expect(settings).toContain("gle _user-prompt-submit");
       expect(settings).toContain("gle _stop");
       expect(settings).not.toContain(join(fakeHome, ".local", "bin", "gle"));
 
-      const globalConfig = await readFile(
-        join(fakeHome, ".gle", "glerc.jsonc"),
-        "utf8",
-      );
+      const globalConfig = await readFile(join(fakeHome, ".gle", "glerc.jsonc"), "utf8");
       expect(globalConfig).toContain("gemini-2.5-flash");
     } finally {
       await rm(fakeHome, { recursive: true, force: true });
@@ -83,10 +77,7 @@ describe("install and prepare commands", () => {
       expect(hook).toContain("gle _post-commit");
       expect(hook).not.toContain("/usr/local/bin/gle");
 
-      const context = await readFile(
-        join(repo, ".gle", "GLE_COMMIT_CONTEXT.md"),
-        "utf8",
-      );
+      const context = await readFile(join(repo, ".gle", "GLE_COMMIT_CONTEXT.md"), "utf8");
       expect(context).toContain("<!-- gle context -->");
 
       const gitignore = await readFile(join(repo, ".gitignore"), "utf8");

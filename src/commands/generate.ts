@@ -21,8 +21,7 @@ import { createProvider } from "../providers/index.js";
 import { print, printError } from "../output.js";
 
 async function openEditor(path: string): Promise<void> {
-  const editor =
-    process.env.GIT_EDITOR ?? process.env.VISUAL ?? process.env.EDITOR ?? "vi";
+  const editor = process.env.GIT_EDITOR ?? process.env.VISUAL ?? process.env.EDITOR ?? "vi";
   await new Promise<void>((resolve, reject) => {
     const child = spawn(editor, [path], { stdio: "inherit", shell: true });
     child.on("error", reject);
@@ -60,9 +59,7 @@ export async function generateCommand(cwd: string): Promise<number> {
   }
 
   const useCached = staged || useAutoStage;
-  const diffStat = useUnstaged
-    ? await getUnstagedDiffStat(cwd)
-    : await getCachedDiffStat(cwd);
+  const diffStat = useUnstaged ? await getUnstagedDiffStat(cwd) : await getCachedDiffStat(cwd);
   const renameEntries = useCached ? await getRenameEntries(cwd) : [];
   const renamedModifiedPaths = renameEntries
     .filter((entry) => entry.modified)

@@ -1,8 +1,5 @@
 import { describe, expect, test } from "vitest";
-import {
-  countContextEntries,
-  isContextEffectivelyEmpty,
-} from "../src/context.js";
+import { countContextEntries, isContextEffectivelyEmpty } from "../src/context.js";
 import { CONTEXT_HEADER } from "../src/constants.js";
 
 describe("context helpers", () => {

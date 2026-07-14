@@ -81,18 +81,12 @@ export async function hasMergeInProgress(cwd: string): Promise<boolean> {
 }
 
 export async function hasUntrackedFiles(cwd: string): Promise<boolean> {
-  const result = await runGitRaw(
-    ["ls-files", "--others", "--exclude-standard"],
-    cwd,
-  );
+  const result = await runGitRaw(["ls-files", "--others", "--exclude-standard"], cwd);
   return result.code === 0 && result.stdout.trim().length > 0;
 }
 
 export async function getUntrackedFilesList(cwd: string): Promise<string> {
-  const result = await runGitRaw(
-    ["ls-files", "--others", "--exclude-standard"],
-    cwd,
-  );
+  const result = await runGitRaw(["ls-files", "--others", "--exclude-standard"], cwd);
   return result.code === 0 ? result.stdout.trim() : "";
 }
 
@@ -114,9 +108,15 @@ export async function setCoreHooksPath(path: string): Promise<void> {
 }
 
 export async function isRepositoryPrepared(cwd: string): Promise<boolean> {
-  const result = await runGitRaw(
-    ["-C", cwd, "config", "--local", "--bool", "--get", "gle.prepared"],
-  );
+  const result = await runGitRaw([
+    "-C",
+    cwd,
+    "config",
+    "--local",
+    "--bool",
+    "--get",
+    "gle.prepared",
+  ]);
   return result.code === 0 && result.stdout.trim() === "true";
 }
 
@@ -185,8 +185,7 @@ export async function getCachedDiffBody(
     const renameSummary = [
       `[リネーム検出: ${renameEntries.length}件]`,
       ...renameEntries.map(
-        (entry) =>
-          `- ${entry.from} → ${entry.to} (similarity: ${entry.similarity}%)`,
+        (entry) => `- ${entry.from} → ${entry.to} (similarity: ${entry.similarity}%)`,
       ),
     ].join("\n");
 
@@ -197,24 +196,15 @@ export async function getCachedDiffBody(
     return [renameSummary, modifiedFiles.trim()].filter(Boolean).join("\n\n").trim();
   }
 
-  const { stdout } = await runGit(
-    ["diff", "--cached", "--find-renames=50%", ...pathspec],
-    cwd,
-  );
+  const { stdout } = await runGit(["diff", "--cached", "--find-renames=50%", ...pathspec], cwd);
   return stdout.trim();
 }
 
-export async function getDiffForPaths(
-  cwd: string,
-  paths: string[],
-): Promise<string> {
+export async function getDiffForPaths(cwd: string, paths: string[]): Promise<string> {
   if (paths.length === 0) {
     return "";
   }
-  const { stdout } = await runGit(
-    ["diff", "--cached", "--find-renames=50%", "--", ...paths],
-    cwd,
-  );
+  const { stdout } = await runGit(["diff", "--cached", "--find-renames=50%", "--", ...paths], cwd);
   return stdout.trim();
 }
 

@@ -3,11 +3,7 @@ import { join } from "node:path";
 import { resolveConfig } from "../config.js";
 import { GLE_ENV_VARS } from "../constants.js";
 import { countContextEntries, readContextFile } from "../context.js";
-import {
-  getCoreHooksPath,
-  getContextFilePath,
-  isRepositoryPrepared,
-} from "../git.js";
+import { getCoreHooksPath, getContextFilePath, isRepositoryPrepared } from "../git.js";
 import {
   getClaudeSettingsPath,
   getDefaultHooksDir,
@@ -28,7 +24,7 @@ export async function statusCommand(cwd: string): Promise<number> {
   const settingsPath = getClaudeSettingsPath();
   const settings = await readFile(settingsPath, "utf8")
     .then((raw) => JSON.parse(raw) as ClaudeSettings)
-    .catch(() => ({} as ClaudeSettings));
+    .catch(() => ({}) as ClaudeSettings);
   const configuredHooksPath = await getCoreHooksPath();
   const hookPath = configuredHooksPath ?? getDefaultHooksDir();
   const postCommitPath = join(hookPath, "post-commit");
@@ -59,12 +55,8 @@ export async function statusCommand(cwd: string): Promise<number> {
   print(
     `  ${postCommitContent.includes(" _post-commit") ? "✓" : "✗"} post-commit       ${postCommitPath}`,
   );
-  print(
-    `  ${configuredHooksPath ? "✓" : "✗"} core.hooksPath    ${hookPath}`,
-  );
-  print(
-    `  ${repositoryPrepared ? "✓" : "✗"} repository        ${repositoryStatus}`,
-  );
+  print(`  ${configuredHooksPath ? "✓" : "✗"} core.hooksPath    ${hookPath}`);
+  print(`  ${repositoryPrepared ? "✓" : "✗"} repository        ${repositoryStatus}`);
   print();
   print("設定:");
   print(`  mode:               ${config.mode}  (${config.sources.mode})`);
@@ -74,13 +66,11 @@ export async function statusCommand(cwd: string): Promise<number> {
     print(`  provider:           ${config.provider}  (${config.sources.provider})`);
     print(`  model:              ${config.model ?? "(unset)"}  (${config.sources.model})`);
   }
-  print(
-    `  maxDiffChars:       ${config.maxDiffChars}  (${config.sources.maxDiffChars})`,
-  );
+  print(`  maxDiffChars:       ${config.maxDiffChars}  (${config.sources.maxDiffChars})`);
   print(`  language:           ${config.language}  (${config.sources.language})`);
   print(`  prompt:             ${config.sources.prompt}`);
-  print(`  global config:      ${await exists(globalConfigPath) ? globalConfigPath : "(none)"}`);
-  print(`  global prompt:      ${await exists(globalPromptPath) ? globalPromptPath : "(none)"}`);
+  print(`  global config:      ${(await exists(globalConfigPath)) ? globalConfigPath : "(none)"}`);
+  print(`  global prompt:      ${(await exists(globalPromptPath)) ? globalPromptPath : "(none)"}`);
   print();
   print("環境変数:");
   for (const name of GLE_ENV_VARS) {

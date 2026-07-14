@@ -1,10 +1,6 @@
 import { spawn } from "node:child_process";
 import { resolveConfig } from "../config.js";
-import {
-  isContextEffectivelyEmpty,
-  readContextFile,
-  resetContextFile,
-} from "../context.js";
+import { isContextEffectivelyEmpty, readContextFile, resetContextFile } from "../context.js";
 import {
   getCachedDiffBody,
   getCachedDiffStat,
@@ -70,8 +66,7 @@ async function runGitCommit(cwd: string, args: string[]): Promise<number> {
 }
 
 async function runEditor(path: string): Promise<void> {
-  const editor =
-    process.env.GIT_EDITOR ?? process.env.VISUAL ?? process.env.EDITOR ?? "vi";
+  const editor = process.env.GIT_EDITOR ?? process.env.VISUAL ?? process.env.EDITOR ?? "vi";
   await new Promise<void>((resolve, reject) => {
     const child = spawn(editor, [path], { stdio: "inherit", shell: true });
     child.on("error", reject);
@@ -133,9 +128,7 @@ export async function commitCommand(cwd: string, rawArgs: string[]): Promise<num
     }
 
     const useCached = staged || useAutoStage;
-    const diffStat = useUnstaged
-      ? await getUnstagedDiffStat(cwd)
-      : await getCachedDiffStat(cwd);
+    const diffStat = useUnstaged ? await getUnstagedDiffStat(cwd) : await getCachedDiffStat(cwd);
     const renameEntries = useCached ? await getRenameEntries(cwd) : [];
     const renamedModifiedPaths = renameEntries
       .filter((entry) => entry.modified)
@@ -157,9 +150,7 @@ export async function commitCommand(cwd: string, rawArgs: string[]): Promise<num
         await runEditor(tempFile.path);
       }
 
-      const passthroughArgs = useUnstaged && !gitArgs.includes("-a")
-        ? ["-a", ...gitArgs]
-        : gitArgs;
+      const passthroughArgs = useUnstaged && !gitArgs.includes("-a") ? ["-a", ...gitArgs] : gitArgs;
       const exitCode = await runGitCommit(cwd, ["-F", tempFile.path, ...passthroughArgs]);
       if (exitCode === 0 && (await isRepositoryPrepared(cwd).catch(() => false))) {
         await resetContextFile(contextPath);

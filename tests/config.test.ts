@@ -52,11 +52,7 @@ describe("config resolution", () => {
         }),
         "utf8",
       );
-      await writeFile(
-        join(fakeHome, ".gle", "prompt.md"),
-        "custom prompt from markdown\n",
-        "utf8",
-      );
+      await writeFile(join(fakeHome, ".gle", "prompt.md"), "custom prompt from markdown\n", "utf8");
 
       const config = await resolveConfig(repoDir);
       expect(config.provider).toBe("openai");

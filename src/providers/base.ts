@@ -13,7 +13,9 @@ export abstract class BaseProvider {
       return this.config.prompt;
     }
 
-    const lang = SUPPORTED_LANGUAGES.includes(this.config.language as (typeof SUPPORTED_LANGUAGES)[number])
+    const lang = SUPPORTED_LANGUAGES.includes(
+      this.config.language as (typeof SUPPORTED_LANGUAGES)[number],
+    )
       ? this.config.language
       : "auto";
 

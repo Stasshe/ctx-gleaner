@@ -1,9 +1,5 @@
 import { appendPromptContext } from "../context.js";
-import {
-  getContextFilePath,
-  isGitRepository,
-  isRepositoryPrepared,
-} from "../git.js";
+import { getContextFilePath, isGitRepository, isRepositoryPrepared } from "../git.js";
 import { pathToFileURL } from "node:url";
 import { printError } from "../output.js";
 
@@ -20,9 +16,7 @@ export async function readStdin(): Promise<string> {
   return Buffer.concat(chunks).toString("utf8");
 }
 
-export async function handleUserPromptSubmitPayload(
-  payload: UserPromptPayload,
-): Promise<void> {
+export async function handleUserPromptSubmitPayload(payload: UserPromptPayload): Promise<void> {
   if (!payload.cwd || !payload.prompt) {
     return;
   }

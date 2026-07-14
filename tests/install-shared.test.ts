@@ -30,13 +30,9 @@ describe("install shared helpers", () => {
       "node /home/user/dev/ctx-gleaner/dist/hooks/user-prompt-submit.js",
     );
 
-    expect(
-      removeClaudeHookByScriptName(
-        settings,
-        "UserPromptSubmit",
-        "user-prompt-submit",
-      ),
-    ).toBe(true);
+    expect(removeClaudeHookByScriptName(settings, "UserPromptSubmit", "user-prompt-submit")).toBe(
+      true,
+    );
     expect(settings.hooks?.UserPromptSubmit).toEqual([]);
   });
 
@@ -80,8 +76,6 @@ describe("install shared helpers", () => {
     const content =
       "#!/usr/bin/env sh\n# gle: clear collected context after successful commit\nnode /old/dist/hooks/post-commit.js\necho after\n";
 
-    expect(removeAnyManagedPostCommitBlock(content)).toBe(
-      "#!/usr/bin/env sh\necho after",
-    );
+    expect(removeAnyManagedPostCommitBlock(content)).toBe("#!/usr/bin/env sh\necho after");
   });
 });

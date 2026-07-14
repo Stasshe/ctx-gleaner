@@ -71,18 +71,12 @@ export async function appendPromptContext(
   await appendFile(path, block, "utf8");
 }
 
-export async function appendStopContext(
-  path: string,
-  summary: string,
-): Promise<void> {
+export async function appendStopContext(path: string, summary: string): Promise<void> {
   await ensureContextFile(path);
   const block = `\n### stop\n${summary.trim()}\n\n---\n`;
   await appendFile(path, block, "utf8");
 }
 
 export function countContextEntries(content: string): number {
-  return content
-    .split("\n")
-    .filter((line) => line.startsWith("## "))
-    .length;
+  return content.split("\n").filter((line) => line.startsWith("## ")).length;
 }
