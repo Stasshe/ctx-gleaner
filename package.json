@@ -18,9 +18,9 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "test": "vitest run",
-    "lint": "biome lint src/**/*.ts tests/**/*.ts",
-    "lint:fix": "biome check --write src/**/*.ts tests/**/*.ts",
-    "format": "biome format --write src/**/*.ts tests/**/*.ts",
+    "lint": "biome lint src tests",
+    "lint:fix": "biome check --write src tests",
+    "format": "biome format --write src tests",
     "clean": "rm -rf dist"
   },
   "keywords": [],
